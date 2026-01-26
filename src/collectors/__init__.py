@@ -11,7 +11,7 @@ from .cls_news import CLSNewsCollector
 from .eastmoney import EastMoneyCollector
 from .sina_finance import SinaFinanceCollector
 from .rss_base import RSSCollector
-from .reuters import ReutersCollector
+from .cnbc import CNBCCollector
 from .bloomberg import BloombergCollector
 from .wsj import WSJCollector
 
@@ -27,7 +27,7 @@ class NewsAggregator:
         ]
         if include_international:
             self.collectors.extend([
-                ReutersCollector(),
+                CNBCCollector(),
                 BloombergCollector(),
                 WSJCollector(),
             ])
@@ -76,7 +76,7 @@ __all__ = [
     "CLSNewsCollector",
     "EastMoneyCollector",
     "SinaFinanceCollector",
-    "ReutersCollector",
+    "CNBCCollector",
     "BloombergCollector",
     "WSJCollector",
     "NewsAggregator",
