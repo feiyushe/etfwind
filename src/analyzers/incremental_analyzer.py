@@ -9,10 +9,8 @@ from loguru import logger
 
 from src.config import settings
 from src.models import (
-    GlobalEvent,
-    SectorOpportunity,
+    FocusEvent,
     PositionAdvice,
-    PolicyInsight,
 )
 from src.web.database import (
     get_daily_report,
@@ -122,7 +120,7 @@ class IncrementalAnalyzer:
         existing_summary = json.dumps({
             "one_liner": existing_report.get("one_liner"),
             "market_emotion": existing_report.get("market_emotion"),
-            "sector_count": len(existing_report.get("sector_opportunities", [])),
+            "focus_events_count": len(existing_report.get("focus_events", [])),
         }, ensure_ascii=False)
 
         new_news_content = self._format_news(new_news)
@@ -176,9 +174,7 @@ class IncrementalAnalyzer:
             "one_liner": data.get("one_liner", "暂无建议"),
             "market_emotion": data.get("market_emotion", 50),
             "emotion_suggestion": data.get("emotion_suggestion", ""),
-            "global_events": data.get("global_events", []),
-            "sector_opportunities": data.get("sector_opportunities", []),
-            "policy_insights": data.get("policy_insights", []),
+            "focus_events": data.get("focus_events", []),
             "position_advices": data.get("position_advices", []),
             "risk_warnings": data.get("risk_warnings", []),
         }
@@ -189,9 +185,7 @@ class IncrementalAnalyzer:
             "one_liner": "AI 分析暂时不可用",
             "market_emotion": 50,
             "emotion_suggestion": "",
-            "global_events": [],
-            "sector_opportunities": [],
-            "policy_insights": [],
+            "focus_events": [],
             "position_advices": [],
             "risk_warnings": [],
         }

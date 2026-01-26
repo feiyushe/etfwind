@@ -102,6 +102,20 @@ class PolicyInsight(BaseModel):
     related_sectors: list[str] = Field(default_factory=list, description="相关板块")
 
 
+Importance = Literal["high", "medium", "low"]
+
+
+class FocusEvent(BaseModel):
+    """焦点事件（事件中心化分析）"""
+    title: str = Field(..., description="事件标题")
+    importance: Importance = Field(default="medium", description="重要性：high/medium/low")
+    what_happened: str = Field(..., description="发生了什么")
+    why_important: str = Field(..., description="为什么重要")
+    market_reaction: str = Field(..., description="大众反应与逆向思考")
+    affected_sectors: list[str] = Field(default_factory=list, description="受影响板块")
+    action_suggestion: str = Field(..., description="操作建议")
+
+
 class InvestmentReport(BaseModel):
     """投资决策报告"""
     period: Literal["morning", "evening"] = Field(..., description="报告周期")
@@ -143,10 +157,10 @@ class DailyReport(BaseModel):
     market_emotion: int = Field(default=50, ge=0, le=100)
     emotion_suggestion: Optional[str] = Field(default=None)
 
-    # 分析内容
-    global_events: list[GlobalEvent] = Field(default_factory=list)
-    sector_opportunities: list[SectorOpportunity] = Field(default_factory=list)
-    policy_insights: list[PolicyInsight] = Field(default_factory=list)
+    # 焦点事件（事件中心化）
+    focus_events: list[FocusEvent] = Field(default_factory=list, description="3-5个焦点事件")
+
+    # 仓位建议
     position_advices: list[PositionAdvice] = Field(default_factory=list)
     risk_warnings: list[str] = Field(default_factory=list)
 
