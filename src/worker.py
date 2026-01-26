@@ -1,7 +1,7 @@
 """后台 Worker 进程：定时采集新闻并触发增量分析"""
 
 import asyncio
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from loguru import logger
 
@@ -63,7 +63,7 @@ async def should_update(new_ids: list[int]) -> bool:
     if isinstance(last_updated, str):
         last_updated = datetime.fromisoformat(last_updated)
 
-    elapsed = (datetime.now() - last_updated).total_seconds()
+    elapsed = (datetime.now(timezone.utc) - last_updated).total_seconds()
     return elapsed >= MIN_UPDATE_INTERVAL
 
 
