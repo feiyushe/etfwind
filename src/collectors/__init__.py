@@ -10,17 +10,27 @@ from .base import BaseCollector
 from .cls_news import CLSNewsCollector
 from .eastmoney import EastMoneyCollector
 from .sina_finance import SinaFinanceCollector
+from .rss_base import RSSCollector
+from .reuters import ReutersCollector
+from .bloomberg import BloombergCollector
+from .wsj import WSJCollector
 
 
 class NewsAggregator:
     """新闻聚合器"""
 
-    def __init__(self):
+    def __init__(self, include_international: bool = True):
         self.collectors: list[BaseCollector] = [
             CLSNewsCollector(),
             EastMoneyCollector(),
             SinaFinanceCollector(),
         ]
+        if include_international:
+            self.collectors.extend([
+                ReutersCollector(),
+                BloombergCollector(),
+                WSJCollector(),
+            ])
 
     async def collect_all(self) -> NewsCollection:
         """并发采集所有来源的新闻"""
@@ -57,8 +67,12 @@ class NewsAggregator:
 
 __all__ = [
     "BaseCollector",
+    "RSSCollector",
     "CLSNewsCollector",
     "EastMoneyCollector",
     "SinaFinanceCollector",
+    "ReutersCollector",
+    "BloombergCollector",
+    "WSJCollector",
     "NewsAggregator",
 ]

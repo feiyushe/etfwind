@@ -85,3 +85,42 @@ INVESTMENT_ANALYSIS_PROMPT = """请根据以下财经新闻，生成投资决策
 - 如果新闻信息不足以判断某个板块，请在 logic 中说明
 - 所有建议针对A股市场，不涉及海外投资
 """
+
+INCREMENTAL_ANALYSIS_PROMPT = """请根据新增新闻更新今日投资报告。
+
+## 当前报告状态
+{existing_report}
+
+## 新增新闻
+{new_news}
+
+## 历史背景
+{history_context}
+
+## 更新要求
+1. 综合新增新闻，更新或补充现有分析
+2. 如果新增新闻改变了某个板块的判断，请更新
+3. 保持逆向投资思维，警惕过热板块
+4. 输出完整的更新后报告（JSON格式同上）
+"""
+
+HISTORY_SUMMARY_PROMPT = """请根据以下报告数据，生成{period_type}市场摘要。
+
+## 报告数据
+{reports_data}
+
+## 输出要求
+请用100字以内总结：
+1. 市场整体趋势（bullish/bearish/neutral）
+2. 关键事件（最多3个）
+3. 主要板块表现
+
+输出JSON格式：
+```json
+{{
+  "summary": "摘要内容",
+  "key_events": ["事件1", "事件2"],
+  "market_trend": "neutral"
+}}
+```
+"""

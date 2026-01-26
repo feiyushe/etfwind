@@ -63,7 +63,7 @@ class ClaudeAnalyzer:
         last_error = None
         for attempt in range(MAX_RETRIES):
             try:
-                async with httpx.AsyncClient(timeout=120.0) as client:
+                async with httpx.AsyncClient(timeout=180.0) as client:
                     response = await client.post(
                         f"{self.base_url}/v1/messages",
                         headers={
@@ -73,7 +73,7 @@ class ClaudeAnalyzer:
                         },
                         json={
                             "model": self.model,
-                            "max_tokens": 4096,
+                            "max_tokens": 8192,
                             "system": SYSTEM_PROMPT,
                             "messages": [{"role": "user", "content": prompt}],
                         },

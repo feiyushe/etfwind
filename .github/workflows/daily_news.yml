@@ -1,11 +1,10 @@
 name: Daily Investment News
 
 on:
-  schedule:
-    # UTC 00:00 = 北京时间 08:00 (早盘)
-    - cron: '0 0 * * 1-5'
-    # UTC 10:00 = 北京时间 18:00 (晚盘)
-    - cron: '0 10 * * 1-5'
+  # 定时任务已由 Fly.io Worker 进程替代（每10分钟自动采集）
+  # schedule:
+  #   - cron: '0 0 * * 1-5'   # UTC 00:00 = 北京时间 08:00
+  #   - cron: '0 10 * * 1-5'  # UTC 10:00 = 北京时间 18:00
   workflow_dispatch:
     inputs:
       period:

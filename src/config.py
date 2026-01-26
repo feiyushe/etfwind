@@ -11,10 +11,10 @@ class Settings(BaseSettings):
     # Claude API 配置
     claude_api_key: str = Field(..., alias="CLAUDE_API_KEY")
     claude_base_url: str = Field(
-        default="https://api.anthropic.com", alias="CLAUDE_BASE_URL"
+        default="https://code.newcli.com/claude/aws", alias="CLAUDE_BASE_URL"
     )
     claude_model: str = Field(
-        default="claude-3-5-sonnet-20241022", alias="CLAUDE_MODEL"
+        default="claude-opus-4-5-20251101", alias="CLAUDE_MODEL"
     )
 
     # 企业微信配置

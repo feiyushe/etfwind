@@ -1,6 +1,6 @@
 """数据模型定义"""
 
-from datetime import datetime
+from datetime import datetime, date
 from enum import Enum
 from typing import Literal, Optional
 from pydantic import BaseModel, Field
@@ -15,6 +15,27 @@ class NewsCategory(str, Enum):
     OTHER = "other"
 
 
+class SourceType(str, Enum):
+    """新闻来源类型"""
+    DOMESTIC = "domestic"
+    INTERNATIONAL = "international"
+
+
+class MarketTrend(str, Enum):
+    """市场趋势"""
+    BULLISH = "bullish"
+    BEARISH = "bearish"
+    NEUTRAL = "neutral"
+
+
+class PeriodType(str, Enum):
+    """周期类型"""
+    WEEK = "week"
+    MONTH = "month"
+    QUARTER = "quarter"
+    YEAR = "year"
+
+
 Signal = Literal["买入", "卖出", "观望"]
 PositionLevel = Literal["重仓", "标配", "轻仓", "空仓"]
 PositionChange = Literal["加仓", "减仓", "持有"]
@@ -26,9 +47,12 @@ class NewsItem(BaseModel):
     title: str = Field(..., description="新闻标题")
     content: str = Field(default="", description="新闻内容")
     source: str = Field(..., description="来源")
+    source_type: SourceType = Field(default=SourceType.DOMESTIC, description="来源类型")
     url: Optional[str] = Field(default=None, description="原文链接")
     published_at: Optional[datetime] = Field(default=None, description="发布时间")
     category: NewsCategory = Field(default=NewsCategory.OTHER, description="分类")
+    language: str = Field(default="zh", description="语言：zh/en")
+    summary_zh: Optional[str] = Field(default=None, description="中文摘要（英文新闻用）")
 
 
 class NewsCollection(BaseModel):
@@ -105,3 +129,36 @@ class InvestmentReport(BaseModel):
 
     # 新闻来源
     news_sources: list[NewsItem] = Field(default_factory=list)
+
+
+class DailyReport(BaseModel):
+    """每日报告（支持增量更新）"""
+    report_date: date = Field(default_factory=date.today, description="报告日期")
+    last_updated: Optional[datetime] = Field(default=None, description="最后更新时间")
+    version: int = Field(default=1, description="版本号")
+    is_finalized: bool = Field(default=False, description="是否已归档")
+
+    # 核心决策
+    one_liner: Optional[str] = Field(default=None, description="今日一句话决策")
+    market_emotion: int = Field(default=50, ge=0, le=100)
+    emotion_suggestion: Optional[str] = Field(default=None)
+
+    # 分析内容
+    global_events: list[GlobalEvent] = Field(default_factory=list)
+    sector_opportunities: list[SectorOpportunity] = Field(default_factory=list)
+    policy_insights: list[PolicyInsight] = Field(default_factory=list)
+    position_advices: list[PositionAdvice] = Field(default_factory=list)
+    risk_warnings: list[str] = Field(default_factory=list)
+
+    # 关联新闻
+    news_ids: list[int] = Field(default_factory=list, description="关联的新闻ID")
+
+
+class MarketSummary(BaseModel):
+    """市场摘要（历史上下文）"""
+    period_type: PeriodType = Field(..., description="周期类型")
+    period_start: date = Field(..., description="周期开始")
+    period_end: date = Field(..., description="周期结束")
+    summary: str = Field(..., description="摘要内容")
+    key_events: list[str] = Field(default_factory=list, description="关键事件")
+    market_trend: MarketTrend = Field(default=MarketTrend.NEUTRAL)
