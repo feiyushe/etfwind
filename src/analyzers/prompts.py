@@ -19,7 +19,7 @@ INVESTMENT_ANALYSIS_PROMPT = """请根据以下财经新闻，生成投资决策
 {news_content}
 
 ## 输出要求
-请严格按照以下JSON格式输出（以事件为中心）：
+请严格按照以下JSON格式输出：
 
 ```json
 {{
@@ -29,21 +29,17 @@ INVESTMENT_ANALYSIS_PROMPT = """请根据以下财经新闻，生成投资决策
   "focus_events": [
     {{
       "title": "美联储暗示降息放缓",
-      "importance": "high",
-      "what_happened": "美联储主席鲍威尔在讲话中暗示，由于通胀粘性，2024年降息步伐可能放缓",
-      "why_important": "这意味着美元走强、外资流出压力增大，A股成长股估值承压",
-      "market_reaction": "大众会想：利空出尽是利好！但历史表明，紧缩周期往往比预期更长",
-      "affected_sectors": ["科技", "新能源", "医药"],
-      "action_suggestion": "成长股持有者可适当减仓，等待更明确信号"
+      "url": "相关新闻链接（如有）",
+      "analysis": "美联储主席鲍威尔暗示由于通胀粘性，降息步伐可能放缓。这意味着美元走强、外资流出压力增大。大众会想利空出尽是利好，但历史表明紧缩周期往往比预期更长。",
+      "suggestion": "成长股持有者可适当减仓，等待更明确信号",
+      "importance": 1
     }},
     {{
       "title": "国内半导体政策加码",
-      "importance": "high",
-      "what_happened": "工信部发布新一轮半导体产业支持政策，加大国产替代力度",
-      "why_important": "政策持续加码表明国产替代是长期主线，但短期板块已过热",
-      "market_reaction": "大众会想：政策利好，赶紧买！但拥挤度过高时往往是阶段顶部",
-      "affected_sectors": ["半导体", "芯片设备", "材料"],
-      "action_suggestion": "已持有者持股观望，未持有者等回调再介入"
+      "url": "",
+      "analysis": "工信部发布新一轮半导体产业支持政策。政策持续加码表明国产替代是长期主线，但短期板块已过热，拥挤度过高时往往是阶段顶部。",
+      "suggestion": "已持有者持股观望，未持有者等回调再介入",
+      "importance": 2
     }}
   ],
   "position_advices": [
@@ -60,12 +56,12 @@ INVESTMENT_ANALYSIS_PROMPT = """请根据以下财经新闻，生成投资决策
 ```
 
 ## 重要提示
-- focus_events 需要3-5个当日最重要的事件，按重要性排序
-- 每个事件必须讲完整故事：发生什么→为什么重要→大众怎么想（反向思考）→怎么操作
-- importance 分为 high/medium/low 三档
+- focus_events 需要8-10个当日最重要的事件，按重要性排序（importance: 1最重要，10最不重要）
+- 每个事件包含：title（标题）、analysis（分析，100字左右，包含事件描述+影响+逆向思考）、suggestion（投资建议，一句话）
+- url 字段：如果能从新闻中找到相关链接则填写，否则留空
 - position_advices 必须包含股票、债券、货币、黄金四类资产
 - 所有建议针对A股市场，不涉及海外投资
-- 逆向思维：在 market_reaction 中指出大众的惯性思维，然后给出反向观点
+- 逆向思维：在 analysis 中指出大众的惯性思维，然后给出反向观点
 """
 
 INCREMENTAL_ANALYSIS_PROMPT = """请根据新增新闻更新今日投资报告。
@@ -81,11 +77,12 @@ INCREMENTAL_ANALYSIS_PROMPT = """请根据新增新闻更新今日投资报告�
 
 ## 更新要求
 1. 评估新增新闻是否包含重要事件，决定是否需要加入 focus_events
-2. 如果新事件比现有事件更重要，替换掉重要性较低的事件
-3. 保持 focus_events 数量在3-5个，按重要性排序
-4. 更新 market_emotion 和 one_liner（如果市场情绪有变化）
-5. 保持逆向投资思维，在 market_reaction 中指出大众思维的盲点
-6. 输出完整的更新后报告（JSON格式同上）
+2. 如果新事件比现有事件更重要，替换掉重要性较低的事件，调整 importance 排序
+3. 保持 focus_events 数量在8-10个，按重要性排序（importance: 1最重要）
+4. 每个事件格式：title（标题）、analysis（分析100字）、suggestion（投资建议一句话）、importance（排序）
+5. 更新 market_emotion 和 one_liner（如果市场情绪有变化）
+6. 保持逆向投资思维，在 analysis 中指出大众思维的盲点
+7. 输出完整的更新后报告（JSON格式同上）
 """
 
 HISTORY_SUMMARY_PROMPT = """请根据以下报告数据，生成{period_type}市场摘要。
