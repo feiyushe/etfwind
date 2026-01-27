@@ -1,5 +1,6 @@
 """基金数据服务 - 获取 ETF/LOF 实时行情和历史数据"""
 
+import time
 import httpx
 from loguru import logger
 from typing import Optional
@@ -14,6 +15,9 @@ class FundService:
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             "Referer": "https://quote.eastmoney.com/",
         }
+        # K线缓存: {secid: (timestamp, data)}
+        self._kline_cache: dict[str, tuple[float, dict]] = {}
+        self._cache_ttl = 300  # 5分钟
 
     async def get_fund_info(self, code: str) -> Optional[dict]:
         """获取基金实时信息"""
@@ -127,7 +131,7 @@ class FundService:
                     "https://push2.eastmoney.com/api/qt/ulist.np/get",
                     params={
                         "secids": ",".join(secids),
-                        "fields": "f12,f14,f2,f3,f6,f62,f184",
+                        "fields": "f12,f14,f2,f3,f6,f8,f62,f184",
                     },
                 )
                 data = resp.json().get("data", {})
@@ -141,6 +145,7 @@ class FundService:
                         flow = item.get("f62", 0) or 0
                         flow_yi = round(flow / 100000000, 2)
                         flow_pct = round((item.get("f184", 0) or 0) / 100, 2)
+                        turnover = round((item.get("f8", 0) or 0) / 100, 2)
                         result[code] = {
                             "code": code,
                             "name": item.get("f14", ""),
@@ -151,6 +156,7 @@ class FundService:
                             "amount_yi": round(item.get("f6", 0) / 100000000, 2),
                             "flow_yi": flow_yi,  # 主力净流入（亿）
                             "flow_pct": flow_pct,  # 主力净占比%
+                            "turnover": turnover,  # 换手率%
                         }
 
                 # 2. 并发获取K线计算多周期涨跌幅
@@ -173,7 +179,13 @@ class FundService:
             return {}
 
     async def _get_kline_changes(self, client, secid: str) -> dict:
-        """获取K线计算5日和20日涨跌幅，返回近20日收盘价"""
+        """获取K线计算5日和20日涨跌幅，返回近20日收盘价（带缓存）"""
+        # 检查缓存
+        now = time.time()
+        if secid in self._kline_cache:
+            cached_time, cached_data = self._kline_cache[secid]
+            if now - cached_time < self._cache_ttl:
+                return cached_data
         try:
             resp = await client.get(
                 "https://push2his.eastmoney.com/api/qt/stock/kline/get",
@@ -207,11 +219,14 @@ class FundService:
             # 返回近20日收盘价用于sparkline
             kline_data = closes[-20:] if len(closes) >= 20 else closes
 
-            return {
+            result = {
                 "change_5d": change_5d,
                 "change_20d": change_20d,
                 "kline": kline_data,
             }
+            # 存入缓存
+            self._kline_cache[secid] = (now, result)
+            return result
         except Exception:
             return {}
 
