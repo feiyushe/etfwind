@@ -15,6 +15,9 @@ SYSTEM_PROMPT = """你是一位专注A股市场的逆向投资分析师。
 
 INVESTMENT_ANALYSIS_PROMPT = """请根据以下财经新闻，生成投资决策参考。
 
+## 当前时间
+{current_time}
+
 ## 新闻内容
 {news_content}
 

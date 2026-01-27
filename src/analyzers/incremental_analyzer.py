@@ -8,7 +8,7 @@ import httpx
 from loguru import logger
 
 from src.config import settings
-from src.utils.timezone import today_beijing
+from src.utils.timezone import today_beijing, now_beijing
 from src.web.database import (
     get_daily_report,
     get_news_by_ids,
@@ -113,7 +113,11 @@ class IncrementalAnalyzer:
     ) -> dict:
         """全量分析"""
         news_content = self._format_news(news_list)
-        prompt = INVESTMENT_ANALYSIS_PROMPT.format(news_content=news_content)
+        current_time = now_beijing().strftime("%Y年%m月%d日 %H:%M 北京时间")
+        prompt = INVESTMENT_ANALYSIS_PROMPT.format(
+            current_time=current_time,
+            news_content=news_content,
+        )
 
         content = await self._call_api(prompt)
         return self._parse_response(content)
