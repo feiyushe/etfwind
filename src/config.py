@@ -17,9 +17,9 @@ class Settings(BaseSettings):
         default="claude-opus-4-5", alias="CLAUDE_MODEL"
     )
 
-    # Supabase 配置
-    supabase_url: str = Field(..., alias="SUPABASE_URL")
-    supabase_key: str = Field(..., alias="SUPABASE_KEY")
+    # Supabase 配置（简化版不需要）
+    supabase_url: Optional[str] = Field(default=None, alias="SUPABASE_URL")
+    supabase_key: Optional[str] = Field(default=None, alias="SUPABASE_KEY")
 
     # 企业微信配置
     wecom_webhook_url: Optional[str] = Field(default=None, alias="WECOM_WEBHOOK_URL")
