@@ -88,15 +88,20 @@ class IncrementalAnalyzer:
         return "\n".join(context_parts) if context_parts else "暂无历史数据"
 
     def _format_news(self, news_list: list[dict]) -> str:
-        """格式化新闻列表"""
+        """格式化新闻列表，包含URL供AI引用"""
         lines = []
         for i, item in enumerate(news_list[:30], 1):
             source = item.get("source", "")
             title = item.get("title", "")
+            url = item.get("url", "")
             # 英文新闻使用中文摘要
             if item.get("language") == "en" and item.get("summary_zh"):
                 title = item.get("summary_zh")
-            lines.append(f"{i}. [{source}] {title}")
+            # 格式：序号. [来源] 标题 | URL
+            if url:
+                lines.append(f"{i}. [{source}] {title} | {url}")
+            else:
+                lines.append(f"{i}. [{source}] {title}")
         return "\n".join(lines)
 
     async def _full_analysis(

@@ -28,18 +28,15 @@ INVESTMENT_ANALYSIS_PROMPT = """请根据以下财经新闻，生成投资决策
   "emotion_suggestion": "当前市场情绪偏贪婪，建议保持谨慎，不追高",
   "focus_events": [
     {{
-      "title": "美联储暗示降息放缓",
-      "url": "相关新闻链接（如有）",
-      "analysis": "美联储主席鲍威尔暗示由于通胀粘性，降息步伐可能放缓。这意味着美元走强、外资流出压力增大。大众会想利空出尽是利好，但历史表明紧缩周期往往比预期更长。",
-      "suggestion": "成长股持有者可适当减仓，等待更明确信号",
+      "title": "沪银夜盘暴涨超9%，贵金属情绪高涨",
+      "sources": [
+        {{"title": "沪银主力合约涨停", "url": "https://finance.sina.com.cn/..."}},
+        {{"title": "白银期货创年内新高", "url": "https://www.cls.cn/..."}},
+        {{"title": "贵金属板块全线走强", "url": "https://finance.eastmoney.com/..."}}
+      ],
+      "analysis": "据财联社报道，沪银夜盘涨幅罕见，单日涨超9%触及涨停。结合新浪财经数据，这一走势与全球避险情绪升温密切相关。从历史规律看，贵金属单日暴涨往往是短期情绪顶点，后续大概率进入震荡消化阶段。白银波动性远超黄金，当前追高风险较大。",
+      "suggestion": "已持有白银相关标的者逢高减仓锁定利润，未持有者切勿追高",
       "importance": 1
-    }},
-    {{
-      "title": "国内半导体政策加码",
-      "url": "",
-      "analysis": "工信部发布新一轮半导体产业支持政策。政策持续加码表明国产替代是长期主线，但短期板块已过热，拥挤度过高时往往是阶段顶部。",
-      "suggestion": "已持有者持股观望，未持有者等回调再介入",
-      "importance": 2
     }}
   ],
   "position_advices": [
@@ -56,12 +53,12 @@ INVESTMENT_ANALYSIS_PROMPT = """请根据以下财经新闻，生成投资决策
 ```
 
 ## 重要提示
-- focus_events 需要8-10个当日最重要的事件，按重要性排序（importance: 1最重要，10最不重要）
-- 每个事件包含：title（标题）、analysis（分析，100字左右，包含事件描述+影响+逆向思考）、suggestion（投资建议，一句话）
-- url 字段：如果能从新闻中找到相关链接则填写，否则留空
+- focus_events 需要8-10个当日最重要的事件，按重要性排序（importance: 1最重要）
+- sources：每个事件附带2-3条相关新闻链接，直接使用新闻列表中提供的URL（格式为"标题 | URL"），优先选择国内源
+- analysis：综合分析（100-150字），自然引用信息源，包含事件背景、市场影响、风险提示
+- suggestion：一句话投资建议
 - position_advices 必须包含股票、债券、货币、黄金四类资产
-- 所有建议针对A股市场，不涉及海外投资
-- 逆向思维：在 analysis 中指出大众的惯性思维，然后给出反向观点
+- 所有建议针对A股市场
 """
 
 INCREMENTAL_ANALYSIS_PROMPT = """请根据新增新闻更新今日投资报告。
@@ -79,9 +76,9 @@ INCREMENTAL_ANALYSIS_PROMPT = """请根据新增新闻更新今日投资报告�
 1. 评估新增新闻是否包含重要事件，决定是否需要加入 focus_events
 2. 如果新事件比现有事件更重要，替换掉重要性较低的事件，调整 importance 排序
 3. 保持 focus_events 数量在8-10个，按重要性排序（importance: 1最重要）
-4. 每个事件格式：title（标题）、analysis（分析100字）、suggestion（投资建议一句话）、importance（排序）
+4. 每个事件格式：title、sources（2-3条国内新闻链接）、analysis（综合分析，引用信息源）、suggestion
 5. 更新 market_emotion 和 one_liner（如果市场情绪有变化）
-6. 保持逆向投资思维，在 analysis 中指出大众思维的盲点
+6. analysis 要自然流畅，引用具体信息源，避免"大众认为"等套话
 7. 输出完整的更新后报告（JSON格式同上）
 """
 
