@@ -102,25 +102,39 @@ async def fetch_fund_data(result: dict):
 
 
 async def fetch_etf_map():
-    """生成 ETF 板块映射文件"""
-    logger.info("生成 ETF 板块映射...")
+    """生成 ETF Master 数据文件（每天只更新一次）"""
+    etf_file = DATA_DIR / "etf_master.json"
+    beijing_tz = timezone(timedelta(hours=8))
+    today = datetime.now(beijing_tz).date().isoformat()
 
+    # 检查是否当天已更新
+    if etf_file.exists():
+        try:
+            data = json.loads(etf_file.read_text())
+            last_update = data.get("updated_at", "")[:10]
+            if last_update == today:
+                logger.info(f"ETF Master 今日已更新，跳过")
+                return
+        except Exception:
+            pass
+
+    logger.info("生成 ETF Master 数据...")
     try:
-        # 强制刷新缓存
         fund_service._etf_cache_time = 0
-        sector_map = await fund_service.get_sector_etf_map()
+        master = await fund_service.build_etf_master(top_n=3)
 
-        # 保存映射
-        etf_map_file = DATA_DIR / "etf_map.json"
-        beijing_tz = timezone(timedelta(hours=8))
+        if not master.get("etfs"):
+            logger.warning("未获取到ETF数据")
+            return
+
         output = {
-            "sectors": sector_map,
+            **master,
             "updated_at": datetime.now(beijing_tz).isoformat(),
         }
-        etf_map_file.write_text(json.dumps(output, ensure_ascii=False, indent=2))
-        logger.info(f"ETF 映射已保存到 {etf_map_file}，共 {len(sector_map)} 个板块")
+        etf_file.write_text(json.dumps(output, ensure_ascii=False, indent=2))
+        logger.info(f"ETF Master 已保存，共 {len(master['etfs'])} 个ETF")
     except Exception as e:
-        logger.warning(f"生成 ETF 映射失败: {e}")
+        logger.warning(f"生成 ETF Master 失败: {e}")
 
 
 if __name__ == "__main__":
