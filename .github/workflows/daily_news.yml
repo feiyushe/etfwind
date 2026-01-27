@@ -1,23 +1,13 @@
 name: Daily Investment News
 
 on:
-  # 定时任务已由 Fly.io Worker 进程替代（每10分钟自动采集）
-  # schedule:
-  #   - cron: '0 0 * * 1-5'   # UTC 00:00 = 北京时间 08:00
-  #   - cron: '0 10 * * 1-5'  # UTC 10:00 = 北京时间 18:00
+  schedule:
+    # 工作日每小时运行（UTC 00:00-12:00 = 北京时间 08:00-20:00）
+    - cron: '0 0-12 * * 1-5'
   workflow_dispatch:
-    inputs:
-      period:
-        description: '报告周期'
-        required: true
-        default: 'morning'
-        type: choice
-        options:
-          - morning
-          - evening
 
 jobs:
-  run:
+  collect-and-analyze:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -27,27 +17,23 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install .
 
-      - name: Determine period
-        id: period
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "value=${{ inputs.period }}" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.schedule }}" = "0 0 * * 1-5" ]; then
-            echo "value=morning" >> $GITHUB_OUTPUT
-          else
-            echo "value=evening" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Install Fly CLI
-        uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Run analysis on Fly.io
+      - name: Run collection cycle
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+          CLAUDE_BASE_URL: ${{ secrets.CLAUDE_BASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          flyctl ssh console -a invest-report -C "sh -c 'cd /app && PYTHONPATH=/app python src/main.py --period ${{ steps.period.outputs.value }}'"
+          python -c "
+          import asyncio
+          from src.worker import run_cycle
+          from src.web.database import init_db
+          async def main():
+              await init_db()
+              await run_cycle()
+          asyncio.run(main())
+          "
