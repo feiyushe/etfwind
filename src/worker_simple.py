@@ -5,7 +5,6 @@ import json
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from collections import Counter
-import re
 from loguru import logger
 
 from src.config import settings
@@ -58,18 +57,30 @@ async def run():
 
 
 async def fetch_fund_data(result: dict):
-    """抓取分析结果中提到的基金数据"""
-    codes = set()
+    """根据分析结果中的板块，动态获取相关ETF数据"""
+    sectors = result.get("sectors", [])
+    if not sectors:
+        logger.info("没有板块数据")
+        return
 
-    # 从 sectors 的 etf 字段提取代码，格式如 "黄金ETF(518880)"
-    for sector in result.get("sectors", []):
-        etf = sector.get("etf", "")
-        match = re.search(r'\((\d{6})\)', etf)
-        if match:
-            codes.add(match.group(1))
+    # 获取板块映射
+    sector_map = await fund_service.get_sector_etf_map()
+    if not sector_map:
+        logger.warning("无法获取板块映射")
+        return
+
+    # 收集所有相关板块的ETF代码
+    codes = set()
+    for sector in sectors:
+        sector_name = sector.get("name", "")
+        for key, etfs in sector_map.items():
+            if key in sector_name or sector_name in key:
+                for code, name in etfs[:3]:  # 每个板块取前3个
+                    codes.add(code)
+                break
 
     if not codes:
-        logger.info("没有需要抓取的基金代码")
+        logger.info("没有匹配到ETF代码")
         return
 
     logger.info(f"抓取 {len(codes)} 个基金数据: {codes}")
@@ -95,6 +106,8 @@ async def fetch_etf_map():
     logger.info("生成 ETF 板块映射...")
 
     try:
+        # 强制刷新缓存
+        fund_service._etf_cache_time = 0
         sector_map = await fund_service.get_sector_etf_map()
 
         # 保存映射

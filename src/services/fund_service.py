@@ -81,36 +81,45 @@ class FundService:
         self._etf_cache_ttl = 86400  # 24小时
 
     async def _fetch_all_etfs(self) -> list[dict]:
-        """从东方财富获取所有 ETF 列表"""
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout, headers=self.headers) as client:
-                resp = await client.get(
-                    "https://push2.eastmoney.com/api/qt/clist/get",
-                    params={
-                        "pn": 1,
-                        "pz": 1000,
-                        "fs": "b:MK0021,b:MK0023,b:MK0024",  # 股票ETF+跨境ETF+商品ETF
-                        "fid": "f6",  # 按成交额排序
-                        "po": 1,  # 降序
-                        "fields": "f12,f14,f6",  # 代码,名称,成交额
-                    },
-                )
-                data = resp.json().get("data", {})
-                diff = data.get("diff", {})
-                # diff 是字典格式 {"0": {...}, "1": {...}}
-                items = diff.values() if isinstance(diff, dict) else diff
-                return [
-                    {
-                        "code": item.get("f12", ""),
-                        "name": item.get("f14", ""),
-                        "amount": item.get("f6", 0),
-                    }
-                    for item in items
-                    if item.get("f12")
-                ]
-        except Exception as e:
-            logger.warning(f"获取ETF列表失败: {e}")
-            return []
+        """从东方财富获取所有 ETF 列表（分页获取，带重试）"""
+        all_etfs = []
+        max_retries = 3
+
+        for attempt in range(max_retries):
+            try:
+                async with httpx.AsyncClient(timeout=self.timeout, headers=self.headers) as client:
+                    for page in range(1, 15):
+                        resp = await client.get(
+                            "https://push2.eastmoney.com/api/qt/clist/get",
+                            params={
+                                "pn": page,
+                                "pz": 100,
+                                "fs": "b:MK0021,b:MK0023,b:MK0024",
+                                "fid": "f6",
+                                "po": 1,
+                                "fields": "f12,f14,f6",
+                            },
+                        )
+                        data = resp.json().get("data", {})
+                        diff = data.get("diff", {})
+                        if not diff:
+                            break
+                        items = diff.values() if isinstance(diff, dict) else diff
+                        for item in items:
+                            if item.get("f12"):
+                                all_etfs.append({
+                                    "code": item.get("f12", ""),
+                                    "name": item.get("f14", ""),
+                                    "amount": item.get("f6", 0),
+                                })
+                    logger.info(f"获取到 {len(all_etfs)} 个ETF")
+                    return all_etfs
+            except Exception as e:
+                logger.warning(f"获取ETF列表失败(尝试{attempt+1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2)
+                all_etfs = []
+        return all_etfs
 
     def _classify_etf(self, name: str) -> Optional[str]:
         """根据 ETF 名称识别所属板块"""
@@ -506,25 +515,19 @@ class FundService:
 
 
     async def get_hot_etfs(self, limit: int = 10) -> list[dict]:
-        """获取热门 ETF（按成交额排序）"""
-        # 主流行业 ETF 代码列表
-        etf_codes = [
-            "512760", "159995", "512480",  # 芯片/半导体
-            "159819", "515070",  # AI/云计算
-            "518880", "159934",  # 黄金
-            "512400", "159980",  # 有色/铜
-            "515790", "516160",  # 光伏/新能源
-            "512660", "512710",  # 军工
-            "512010", "159992",  # 医药/创新药
-            "512880", "512000",  # 证券
-            "512800", "515020",  # 银行
-            "159915", "588000",  # 创业板/科创50
-            "510300", "510500",  # 沪深300/中证500
-            "513180", "159920",  # 恒生科技/港股
-            "512200", "159707",  # 房地产
-            "159865", "159825",  # 养殖/农业
-            "515880", "515050",  # 通信/5G
-        ]
+        """获取热门 ETF（从动态映射中获取，按成交额排序）"""
+        sector_map = await self.get_sector_etf_map()
+        if not sector_map:
+            return []
+
+        # 每个板块取第一个 ETF
+        etf_codes = []
+        for etfs in sector_map.values():
+            if etfs:
+                etf_codes.append(etfs[0][0])  # (code, name)
+
+        if not etf_codes:
+            return []
 
         data = await self.batch_get_funds(etf_codes)
         if not data:

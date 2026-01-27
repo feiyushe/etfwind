@@ -34,20 +34,26 @@ ANALYSIS_PROMPT = """你是A股ETF投资分析师，用小红书风格输出投�
   "market_view": "🎯 当前市场状态一句话总结（20字内，带emoji）",
   "narrative": "市场全景分析（150字，包含主要矛盾、情绪、趋势，适当加emoji）",
   "sectors": [
-    {{"name": "存储芯片", "direction": "利好", "reason": "📈 涨价+短缺", "etf": "芯片ETF(512760)"}},
-    {{"name": "锂电池", "direction": "利空", "reason": "📉 多家预亏", "etf": "锂电池ETF(159840)"}}
-  ],
-  "events": [
-    {{"title": "🔥 白银暴涨9%", "analysis": "避险情绪升温...", "suggestion": "💡 持有者可减仓"}}
+    {{
+      "name": "芯片",
+      "direction": "利好",
+      "reason": "📈 涨价+短缺",
+      "events": [
+        {{"title": "🔥 美光涨5%", "suggestion": "💡 可关注"}}
+      ]
+    }}
   ],
   "risk_level": "中"
 }}
 ```
 
 注意：
-- sectors 最多6个，按重要性排序，reason 前加合适emoji
-- events 最多5个重要事件，title 前加emoji（🔥热点 📈利好 📉利空 ⚠️风险 💰机会）
-- suggestion 前加💡
+- sectors 最多6个，按重要性排序
+- name 必须是标准板块名：芯片/半导体/人工智能/通信/机器人/光伏/新能源/新能源车/锂电池/军工/医药/创新药/证券/银行/房地产/白酒/消费/农业/黄金/有色/煤炭/钢铁/石油/恒生科技/港股/游戏/传媒/电力
+- 每个 sector 包含 events 数组（1-2个相关事件），事件 title 前加emoji
+- direction: 利好/利空/中性
+- reason 前加合适emoji（📈📉⚠️💰🔥）
+- suggestion 前加💡，15字内
 - 业绩预告要聚合看行业趋势
 - risk_level: 低/中/高
 """
