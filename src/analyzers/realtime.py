@@ -23,7 +23,7 @@ _cache = {
 # 定时任务控制
 _scheduler_task = None
 
-ANALYSIS_PROMPT = """你是A股ETF投资分析师。分析以下财经新闻，输出投资参考。
+ANALYSIS_PROMPT = """你是A股ETF投资分析师，用小红书风格输出投资参考（适当使用emoji让内容更生动）。
 
 ## 新闻（共{count}条）
 {news_list}
@@ -31,22 +31,23 @@ ANALYSIS_PROMPT = """你是A股ETF投资分析师。分析以下财经新闻，�
 ## 输出要求
 ```json
 {{
-  "market_view": "当前市场状态一句话总结（20字内）",
-  "narrative": "市场全景分析（150字，包含主要矛盾、情绪、趋势）",
+  "market_view": "🎯 当前市场状态一句话总结（20字内，带emoji）",
+  "narrative": "市场全景分析（150字，包含主要矛盾、情绪、趋势，适当加emoji）",
   "sectors": [
-    {{"name": "存储芯片", "direction": "利好", "reason": "涨价+短缺", "etf": "芯片ETF(512760)"}},
-    {{"name": "锂电池", "direction": "利空", "reason": "多家预亏", "etf": "锂电池ETF(159840)"}}
+    {{"name": "存储芯片", "direction": "利好", "reason": "📈 涨价+短缺", "etf": "芯片ETF(512760)"}},
+    {{"name": "锂电池", "direction": "利空", "reason": "📉 多家预亏", "etf": "锂电池ETF(159840)"}}
   ],
   "events": [
-    {{"title": "白银暴涨9%", "analysis": "避险情绪升温...", "suggestion": "持有者可减仓"}}
+    {{"title": "🔥 白银暴涨9%", "analysis": "避险情绪升温...", "suggestion": "💡 持有者可减仓"}}
   ],
   "risk_level": "中"
 }}
 ```
 
 注意：
-- sectors 最多6个，按重要性排序
-- events 最多5个重要事件
+- sectors 最多6个，按重要性排序，reason 前加合适emoji
+- events 最多5个重要事件，title 前加emoji（🔥热点 📈利好 📉利空 ⚠️风险 💰机会）
+- suggestion 前加💡
 - 业绩预告要聚合看行业趋势
 - risk_level: 低/中/高
 """
