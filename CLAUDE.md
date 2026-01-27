@@ -42,11 +42,11 @@ collectors/  →  IncrementalAnalyzer  →  Supabase  ←  FastAPI (Fly.io)
 ```
 
 **核心流程：**
-1. GitHub Actions 工作日每小时运行采集和分析
+1. GitHub Actions 每 30 分钟运行采集和分析
 2. `NewsAggregator` 并发调用6个采集器
 3. 新闻去重后存入 Supabase `news_items` 表
-4. 当新增新闻 ≥5 条且距上次更新 ≥30分钟时，触发 `IncrementalAnalyzer`
-5. AI 分析结果存入 `daily_reports` 表
+4. 当新增新闻 ≥1 条且距上次更新 ≥5分钟时，触发 `IncrementalAnalyzer`
+5. AI 分析结果存入 `daily_reports` 表，焦点事件同步存入 `focus_events` 表
 6. Fly.io 仅运行 Web 服务，从 Supabase 读取数据展示
 
 **关键模块：**
@@ -72,7 +72,7 @@ collectors/  →  IncrementalAnalyzer  →  Supabase  ←  FastAPI (Fly.io)
 ## Deployment
 
 - **Web**: Fly.io（新加坡，256MB，auto_stop）
-- **采集/分析**: GitHub Actions（工作日 08:00-20:00 每小时）
+- **采集/分析**: GitHub Actions（每 30 分钟）
 - **数据库**: Supabase（PostgreSQL）
 - **URL**: https://invest-report.fly.dev/
 
@@ -81,12 +81,14 @@ collectors/  →  IncrementalAnalyzer  →  Supabase  ←  FastAPI (Fly.io)
 **daily_reports 表核心字段：**
 - `focus_events`: 焦点事件数组，每个事件包含 title、analysis、suggestion、related_funds、sources
 - `market_emotion`: 市场情绪指数（0-100）
-- `position_advices`: 仓位建议（股票/债券/货币/黄金）
+- `market_narrative`: 市场全景描述（2-3句话）
 
-**focus_events 中的 related_funds 格式：**
-```json
-[{"code": "518880", "name": "黄金ETF", "reason": "跟踪金价，流动性好"}]
-```
+**focus_events 表（瀑布流独立存储）：**
+- `event_hash`: 标题 MD5 哈希，用于去重
+- `title`, `sector`, `analysis`, `suggestion`
+- `related_funds`: 字符串数组，如 `["易方达沪深300医药ETF(512010)"]`
+- `sources`: 来源数组
+- `created_at`: 事件首次出现时间（瀑布流按此排序）
 
 ## Timezone Handling
 
