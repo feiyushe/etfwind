@@ -8,6 +8,7 @@ venv/
 
 # 数据文件
 data/
+!data/latest.json
 
 # 报告文件
 reports/
