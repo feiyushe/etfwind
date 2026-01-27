@@ -167,17 +167,31 @@ class FundService:
         return all_etfs
 
     async def _fetch_etf_desc(self, client: httpx.AsyncClient, code: str) -> str:
-        """获取单个 ETF 的描述（跟踪指数）"""
+        """获取 ETF 描述（基金全称、成立日期、管理人、经理）"""
         try:
             url = f"https://fundf10.eastmoney.com/jbgk_{code}.html"
             resp = await client.get(url, timeout=10)
             text = resp.text
-            # 提取跟踪标的（支持两种格式）
-            match = re.search(r'跟踪标的</th><td>([^<]+)', text)
-            if not match:
-                match = re.search(r'跟踪标的</a></th>\s*<td[^>]*>([^<]+)', text)
-            if match:
-                return match.group(1).strip()
+
+            parts = []
+            # 基金全称
+            m = re.search(r'基金全称</th><td[^>]*>([^<]+)', text)
+            if m:
+                parts.append(f"基金名称：{m.group(1).strip()}")
+            # 成立日期
+            m = re.search(r'成立日期/规模</th><td[^>]*>([^/]+)', text)
+            if m:
+                parts.append(f"成立日期：{m.group(1).strip()}")
+            # 基金管理人
+            m = re.search(r'基金管理人</th><td[^>]*><a[^>]*>([^<]+)', text)
+            if m:
+                parts.append(f"基金管理人：{m.group(1).strip()}")
+            # 基金经理
+            m = re.search(r'基金经理人</th><td[^>]*><a[^>]*>([^<]+)', text)
+            if m:
+                parts.append(f"基金经理：{m.group(1).strip()}")
+
+            return "\n".join(parts) if parts else ""
         except Exception:
             pass
         return ""
