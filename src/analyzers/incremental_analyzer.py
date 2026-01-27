@@ -120,7 +120,7 @@ class IncrementalAnalyzer:
         )
 
         content = await self._call_api(prompt)
-        return self._parse_response(content)
+        return self._parse_response(content, news_list)
 
     async def _incremental_analysis(
         self,
@@ -145,7 +145,7 @@ class IncrementalAnalyzer:
         )
 
         content = await self._call_api(prompt)
-        return self._parse_response(content)
+        return self._parse_response(content, new_news)
 
     async def _call_api(self, prompt: str) -> str:
         """调用 Claude API"""
@@ -168,8 +168,8 @@ class IncrementalAnalyzer:
             data = response.json()
             return data["content"][0]["text"]
 
-    def _parse_response(self, content: str) -> dict:
-        """解析 AI 响应"""
+    def _parse_response(self, content: str, news_list: list[dict] = None) -> dict:
+        """解析 AI 响应，根据 source_ids 组装 sources"""
         import re
 
         # 尝试提取 JSON 块
@@ -213,13 +213,30 @@ class IncrementalAnalyzer:
                 logger.debug(f"原始响应: {content[:500]}...")
                 return self._default_result()
 
+        # 根据 source_ids 组装 sources
+        focus_events = data.get("focus_events", [])
+        if news_list:
+            for event in focus_events:
+                source_ids = event.get("source_ids", [])
+                sources = []
+                for idx in source_ids:
+                    if 1 <= idx <= len(news_list):
+                        news_item = news_list[idx - 1]
+                        if news_item.get("url"):
+                            sources.append({
+                                "title": news_item.get("title", ""),
+                                "url": news_item.get("url", "")
+                            })
+                event["sources"] = sources
+                # 移除 source_ids，前端不需要
+                event.pop("source_ids", None)
+
         return {
             "one_liner": data.get("one_liner", "暂无建议"),
             "market_emotion": data.get("market_emotion", 50),
             "market_narrative": data.get("market_narrative", ""),
             "emotion_suggestion": data.get("emotion_suggestion", ""),
-            "focus_events": data.get("focus_events", []),
-            "position_advices": data.get("position_advices", []),
+            "focus_events": focus_events,
             "risk_warnings": data.get("risk_warnings", []),
         }
 
@@ -231,6 +248,5 @@ class IncrementalAnalyzer:
             "market_narrative": "",
             "emotion_suggestion": "",
             "focus_events": [],
-            "position_advices": [],
             "risk_warnings": [],
         }
