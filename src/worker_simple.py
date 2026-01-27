@@ -51,6 +51,9 @@ async def run():
     # 抓取基金数据
     await fetch_fund_data(result)
 
+    # 生成 ETF 板块映射
+    await fetch_etf_map()
+
     return output
 
 
@@ -85,6 +88,26 @@ async def fetch_fund_data(result: dict):
         logger.info(f"基金数据已保存到 {funds_file}")
     except Exception as e:
         logger.warning(f"抓取基金数据失败: {e}")
+
+
+async def fetch_etf_map():
+    """生成 ETF 板块映射文件"""
+    logger.info("生成 ETF 板块映射...")
+
+    try:
+        sector_map = await fund_service.get_sector_etf_map()
+
+        # 保存映射
+        etf_map_file = DATA_DIR / "etf_map.json"
+        beijing_tz = timezone(timedelta(hours=8))
+        output = {
+            "sectors": sector_map,
+            "updated_at": datetime.now(beijing_tz).isoformat(),
+        }
+        etf_map_file.write_text(json.dumps(output, ensure_ascii=False, indent=2))
+        logger.info(f"ETF 映射已保存到 {etf_map_file}，共 {len(sector_map)} 个板块")
+    except Exception as e:
+        logger.warning(f"生成 ETF 映射失败: {e}")
 
 
 if __name__ == "__main__":

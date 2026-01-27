@@ -1,10 +1,64 @@
 """基金数据服务 - 获取 ETF/LOF 实时行情和历史数据"""
 
 import asyncio
+import re
 import time
 import httpx
 from loguru import logger
 from typing import Optional
+
+# 板块关键词映射（用于从 ETF 名称中提取板块）
+# 格式: 板块名 -> [关键词列表]
+# 注意：匹配顺序很重要，更具体的关键词应该放在前面
+SECTOR_KEYWORDS = {
+    # 科技类
+    "芯片": ["芯片", "集成电路"],
+    "半导体": ["半导体"],
+    "人工智能": ["人工智能", "AI ETF", "AIETF"],
+    "云计算": ["云计算", "大数据"],
+    "通信": ["通信ETF", "5G"],
+    "机器人": ["机器人"],
+    # 新能源类
+    "光伏": ["光伏"],
+    "新能源车": ["新能源车", "新能源汽车", "智能汽车", "智能车"],
+    "新能源": ["新能源ETF"],
+    "锂电池": ["锂电池", "电池ETF"],
+    # 军工
+    "军工": ["军工", "国防", "航天航空", "航空航天"],
+    # 医药类
+    "创新药": ["创新药"],
+    "医药": ["医药", "医疗", "生物制药"],
+    # 金融类
+    "证券": ["证券ETF", "券商ETF"],
+    "银行": ["银行ETF"],
+    "保险": ["保险ETF"],
+    # 地产
+    "房地产": ["房地产", "地产ETF"],
+    # 消费类
+    "白酒": ["白酒", "酒ETF"],
+    "食品饮料": ["食品ETF", "饮料"],
+    "消费": ["消费ETF"],
+    "家电": ["家电"],
+    # 农业
+    "农业": ["农业ETF", "养殖", "畜牧", "猪"],
+    # 资源类
+    "黄金": ["黄金ETF"],
+    "贵金属": ["贵金属", "白银"],
+    "有色": ["有色金属", "铜ETF", "铝ETF", "稀土"],
+    "煤炭": ["煤炭"],
+    "钢铁": ["钢铁"],
+    "石油": ["石油", "油气"],
+    # 其他
+    "汽车": ["汽车ETF", "汽车零部件"],
+    "恒生科技": ["恒生科技"],
+    "港股": ["港股通", "H股ETF"],
+    "科技": ["科技ETF", "TMT"],
+    "互联网": ["互联网"],
+    "游戏": ["游戏ETF"],
+    "传媒": ["传媒ETF"],
+    "电力": ["电力ETF", "电网"],
+    "环保": ["环保", "碳中和"],
+}
 
 
 class FundService:
@@ -21,6 +75,104 @@ class FundService:
         # K线缓存: {secid: (timestamp, data)}
         self._kline_cache: dict[str, tuple[float, dict]] = {}
         self._cache_ttl = 300  # 5分钟
+        # ETF列表缓存: {sector: [(code, name, amount), ...]}
+        self._etf_list_cache: dict[str, list] = {}
+        self._etf_cache_time: float = 0
+        self._etf_cache_ttl = 86400  # 24小时
+
+    async def _fetch_all_etfs(self) -> list[dict]:
+        """从东方财富获取所有 ETF 列表"""
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout, headers=self.headers) as client:
+                resp = await client.get(
+                    "https://push2.eastmoney.com/api/qt/clist/get",
+                    params={
+                        "pn": 1,
+                        "pz": 1000,
+                        "fs": "b:MK0021,b:MK0023,b:MK0024",  # 股票ETF+跨境ETF+商品ETF
+                        "fid": "f6",  # 按成交额排序
+                        "po": 1,  # 降序
+                        "fields": "f12,f14,f6",  # 代码,名称,成交额
+                    },
+                )
+                data = resp.json().get("data", {})
+                diff = data.get("diff", {})
+                # diff 是字典格式 {"0": {...}, "1": {...}}
+                items = diff.values() if isinstance(diff, dict) else diff
+                return [
+                    {
+                        "code": item.get("f12", ""),
+                        "name": item.get("f14", ""),
+                        "amount": item.get("f6", 0),
+                    }
+                    for item in items
+                    if item.get("f12")
+                ]
+        except Exception as e:
+            logger.warning(f"获取ETF列表失败: {e}")
+            return []
+
+    def _classify_etf(self, name: str) -> Optional[str]:
+        """根据 ETF 名称识别所属板块"""
+        # 排除宽基指数ETF
+        exclude_keywords = ["沪深300", "中证500", "中证1000", "上证50",
+                          "创业板ETF", "科创50", "科创100", "A500", "红利",
+                          "深证100", "深成", "中小", "综指", "中证A"]
+        for kw in exclude_keywords:
+            if kw in name:
+                return None
+
+        # 排除跨境ETF（除非是专门的港股板块关键词）
+        cross_border = ["香港", "纳指", "纳斯达克", "标普", "日经", "德国", "法国",
+                       "中韩", "恒生互联网", "中概", "港股创新药", "港股通创新药",
+                       "恒生医药", "恒生医疗"]
+        if any(kw in name for kw in cross_border):
+            # 只保留恒生科技和港股通（非创新药）
+            if "恒生科技" in name:
+                return "恒生科技"
+            if "港股通" in name and "创新药" not in name:
+                return "港股"
+            return None
+
+        # 排除复合型ETF（如"证券保险"）
+        if "证券保险" in name:
+            return None
+
+        # 按关键词匹配板块
+        for sector, keywords in SECTOR_KEYWORDS.items():
+            for kw in keywords:
+                if kw in name:
+                    return sector
+        return None
+
+    async def get_sector_etf_map(self) -> dict[str, list[tuple[str, str]]]:
+        """动态获取板块->ETF映射（按成交额排序）"""
+        now = time.time()
+        if self._etf_list_cache and now - self._etf_cache_time < self._etf_cache_ttl:
+            return self._etf_list_cache
+
+        etfs = await self._fetch_all_etfs()
+        if not etfs:
+            return self._etf_list_cache  # 返回旧缓存
+
+        # 按板块分类
+        sector_map: dict[str, list] = {}
+        for etf in etfs:
+            sector = self._classify_etf(etf["name"])
+            if sector:
+                if sector not in sector_map:
+                    sector_map[sector] = []
+                sector_map[sector].append((etf["code"], etf["name"], etf["amount"]))
+
+        # 每个板块按成交额排序，只保留前5个
+        for sector in sector_map:
+            sector_map[sector].sort(key=lambda x: x[2], reverse=True)
+            sector_map[sector] = [(code, name) for code, name, _ in sector_map[sector][:5]]
+
+        self._etf_list_cache = sector_map
+        self._etf_cache_time = now
+        logger.info(f"更新ETF板块映射，共 {len(sector_map)} 个板块")
+        return sector_map
 
     async def get_fund_info(self, code: str) -> Optional[dict]:
         """获取基金实时信息"""
@@ -174,11 +326,55 @@ class FundService:
                     "f8": 0,  # 换手率（新浪无此数据）
                     "f62": 0,  # 主力流入（新浪无此数据）
                     "f184": 0,  # 主力占比（新浪无此数据）
+                    "_from_sina": True,  # 标记来自新浪，需要单独获取K线
                 })
             return results
         except Exception as e:
             logger.warning(f"新浪API也失败: {e}")
             return []
+
+    async def _get_kline_from_sina(self, client, code: str) -> dict:
+        """从新浪获取K线数据"""
+        try:
+            prefix = "sh" if code.startswith("5") else "sz"
+            sina_code = f"{prefix}{code}"
+            # 新浪日K线API
+            resp = await client.get(
+                f"https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData",
+                params={
+                    "symbol": sina_code,
+                    "scale": "240",  # 日K
+                    "ma": "no",
+                    "datalen": "25",
+                },
+                headers={"Referer": "https://finance.sina.com.cn"},
+            )
+            data = resp.json()
+            if not data or not isinstance(data, list):
+                return {}
+
+            closes = [float(item["close"]) for item in data]
+            if len(closes) < 2:
+                return {}
+
+            today_close = closes[-1]
+            change_5d = 0
+            change_20d = 0
+
+            if len(closes) >= 6:
+                change_5d = round((today_close - closes[-6]) / closes[-6] * 100, 2)
+            if len(closes) >= 21:
+                change_20d = round((today_close - closes[-21]) / closes[-21] * 100, 2)
+
+            kline_data = closes[-20:] if len(closes) >= 20 else closes
+            return {
+                "change_5d": change_5d,
+                "change_20d": change_20d,
+                "kline": kline_data,
+            }
+        except Exception as e:
+            logger.warning(f"新浪K线API失败 {code}: {e}")
+            return {}
 
     async def batch_get_funds(self, codes: list[str]) -> dict[str, dict]:
         """批量获取基金信息（实时行情+多周期涨跌幅）"""
@@ -222,15 +418,23 @@ class FundService:
                             "flow_pct": flow_pct,  # 主力净占比%
                             "turnover": turnover,  # 换手率%
                         }
+                        # 确保 code_to_secid 映射存在（新浪回退时可能缺失）
+                        if code not in code_to_secid:
+                            if code.startswith("5"):
+                                code_to_secid[code] = f"1.{code}"
+                            else:
+                                code_to_secid[code] = f"0.{code}"
 
-                # 2. 并发获取K线计算多周期涨跌幅
+                # 2. 并发获取K线计算多周期涨跌幅（东方财富K线API）
                 tasks = []
-                for code in result.keys():
-                    tasks.append(self._get_kline_changes(client, code_to_secid.get(code, "")))
+                codes_list = list(result.keys())
+                for code in codes_list:
+                    secid = code_to_secid.get(code, "")
+                    tasks.append(self._get_kline_changes(client, secid))
 
                 if tasks:
                     kline_results = await asyncio.gather(*tasks, return_exceptions=True)
-                    for code, kline_data in zip(result.keys(), kline_results):
+                    for code, kline_data in zip(codes_list, kline_results):
                         if isinstance(kline_data, dict):
                             result[code]["change_5d"] = kline_data.get("change_5d", 0)
                             result[code]["change_20d"] = kline_data.get("change_20d", 0)
@@ -243,6 +447,8 @@ class FundService:
 
     async def _get_kline_changes(self, client, secid: str) -> dict:
         """获取K线计算5日和20日涨跌幅，返回近20日收盘价（带缓存）"""
+        if not secid:
+            return {}
         # 检查缓存
         now = time.time()
         if secid in self._kline_cache:
@@ -290,8 +496,74 @@ class FundService:
             # 存入缓存
             self._kline_cache[secid] = (now, result)
             return result
-        except Exception:
+        except Exception as e:
+            logger.warning(f"东方财富K线失败 {secid}: {e}，尝试新浪")
+            # 回退到新浪K线API
+            code = secid.split(".")[-1] if "." in secid else ""
+            if code:
+                return await self._get_kline_from_sina(client, code)
             return {}
+
+
+    async def get_hot_etfs(self, limit: int = 10) -> list[dict]:
+        """获取热门 ETF（按成交额排序）"""
+        # 主流行业 ETF 代码列表
+        etf_codes = [
+            "512760", "159995", "512480",  # 芯片/半导体
+            "159819", "515070",  # AI/云计算
+            "518880", "159934",  # 黄金
+            "512400", "159980",  # 有色/铜
+            "515790", "516160",  # 光伏/新能源
+            "512660", "512710",  # 军工
+            "512010", "159992",  # 医药/创新药
+            "512880", "512000",  # 证券
+            "512800", "515020",  # 银行
+            "159915", "588000",  # 创业板/科创50
+            "510300", "510500",  # 沪深300/中证500
+            "513180", "159920",  # 恒生科技/港股
+            "512200", "159707",  # 房地产
+            "159865", "159825",  # 养殖/农业
+            "515880", "515050",  # 通信/5G
+        ]
+
+        data = await self.batch_get_funds(etf_codes)
+        if not data:
+            return []
+
+        # 按成交额排序
+        sorted_etfs = sorted(
+            data.values(),
+            key=lambda x: x.get("amount_yi", 0),
+            reverse=True
+        )
+        return sorted_etfs[:limit]
+
+    async def get_sector_etfs(self, sector: str, limit: int = 3) -> list[dict]:
+        """获取板块相关ETF（动态获取，按成交额排序）"""
+        # 动态获取板块映射
+        sector_map = await self.get_sector_etf_map()
+
+        # 查找匹配的板块
+        codes = None
+        for key, etfs in sector_map.items():
+            if key in sector or sector in key:
+                codes = [code for code, name in etfs]
+                break
+
+        if not codes:
+            return []
+
+        data = await self.batch_get_funds(codes[:limit])
+        if not data:
+            return []
+
+        # 按成交额排序
+        sorted_etfs = sorted(
+            data.values(),
+            key=lambda x: x.get("amount_yi", 0),
+            reverse=True
+        )
+        return sorted_etfs[:limit]
 
 
 # 单例
