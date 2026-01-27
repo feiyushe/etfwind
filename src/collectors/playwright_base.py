@@ -58,8 +58,8 @@ class PlaywrightCollector:
             browser = await get_browser()
             page = await browser.new_page()
             try:
-                await page.goto(url, timeout=self.timeout)
-                await page.wait_for_load_state("networkidle", timeout=10000)
+                await page.goto(url, wait_until="domcontentloaded", timeout=self.timeout)
+                await page.wait_for_timeout(2000)  # 等待JS渲染
                 content = await page.content()
                 return content
             finally:

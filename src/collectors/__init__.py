@@ -21,7 +21,16 @@ try:
     from .playwright_base import PlaywrightCollector, close_browser
     from .cls_playwright import CLSPlaywrightCollector
     from .sina_playwright import SinaPlaywrightCollector
-    _playwright_collectors = [CLSPlaywrightCollector, SinaPlaywrightCollector]
+    from .eastmoney_playwright import EastMoneyPlaywrightCollector
+    from .wallstreetcn import WallStreetCNCollector
+    from .jin10 import Jin10Collector
+    _playwright_collectors = [
+        CLSPlaywrightCollector,
+        SinaPlaywrightCollector,
+        EastMoneyPlaywrightCollector,
+        WallStreetCNCollector,
+        Jin10Collector,
+    ]
 except ImportError:
     close_browser = None
     pass
