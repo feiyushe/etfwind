@@ -61,7 +61,16 @@ async def should_update(new_ids: list[int]) -> bool:
         return True
 
     if isinstance(last_updated, str):
-        last_updated = datetime.fromisoformat(last_updated)
+        # last_updated 是北京时间字符串，转换为 datetime
+        try:
+            last_updated = datetime.fromisoformat(last_updated)
+        except ValueError:
+            # 格式可能是 "YYYY-MM-DD HH:MM:SS"
+            last_updated = datetime.strptime(last_updated, "%Y-%m-%d %H:%M:%S")
+        # 标记为北京时区
+        from datetime import timezone as tz, timedelta
+        beijing_tz = tz(timedelta(hours=8))
+        last_updated = last_updated.replace(tzinfo=beijing_tz)
 
     elapsed = (datetime.now(timezone.utc) - last_updated).total_seconds()
     return elapsed >= MIN_UPDATE_INTERVAL
