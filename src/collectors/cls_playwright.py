@@ -25,21 +25,19 @@ class CLSPlaywrightCollector(PlaywrightCollector):
 
         for tg in telegraphs[:30]:  # 最多30条
             try:
-                # 提取标题/内容
-                title_el = tg.select_one(".telegraph-title, .title, h3")
-                content_el = tg.select_one(".telegraph-content, .content, p")
+                # 提取标题/内容 - strong 标签包含标题
+                title_el = tg.select_one("strong")
+                title = title_el.get_text(strip=True) if title_el else ""
 
-                title = ""
-                if title_el:
-                    title = title_el.get_text(strip=True)
-                if not title and content_el:
-                    title = content_el.get_text(strip=True)[:100]
+                # 如果没有 strong，取整个内容
+                if not title:
+                    title = tg.get_text(strip=True)[:100]
 
                 if not title or len(title) < 10:
                     continue
 
                 # 提取时间
-                time_el = tg.select_one(".telegraph-time, .time, time")
+                time_el = tg.select_one(".telegraph-time-box")
                 pub_time = None
                 if time_el:
                     time_text = time_el.get_text(strip=True)
