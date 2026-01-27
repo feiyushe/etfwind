@@ -5,6 +5,7 @@ import json
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from collections import Counter
+import re
 from loguru import logger
 
 from src.config import settings
@@ -55,13 +56,14 @@ async def run():
 
 async def fetch_fund_data(result: dict):
     """抓取分析结果中提到的基金数据"""
-    # 从分析结果中提取所有基金代码
     codes = set()
-    for event in result.get("events", []):
-        for fund in event.get("related_funds", []):
-            code = fund.get("code") if isinstance(fund, dict) else None
-            if code and len(code) == 6 and code.isdigit():
-                codes.add(code)
+
+    # 从 sectors 的 etf 字段提取代码，格式如 "黄金ETF(518880)"
+    for sector in result.get("sectors", []):
+        etf = sector.get("etf", "")
+        match = re.search(r'\((\d{6})\)', etf)
+        if match:
+            codes.add(match.group(1))
 
     if not codes:
         logger.info("没有需要抓取的基金代码")
