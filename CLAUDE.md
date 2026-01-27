@@ -109,3 +109,15 @@ collectors/  →  IncrementalAnalyzer  →  Supabase  ←  FastAPI (Fly.io)
 **部署：** Fly.io / GitHub Actions / uv (包管理)
 
 **特点：** 全异步架构、增量分析、SSE 实时推送、多源并发采集
+
+## Lessons Learned
+
+### Playwright 闭环验证
+
+修改前端代码后，使用 Playwright 自动打开网站验证效果：
+```
+1. 部署后用 browser_navigate 打开页面
+2. 用 browser_snapshot 获取页面结构，检查数据是否正确渲染
+3. 发现问题 → 修复代码 → 重新部署 → 再次验证
+4. 完成后用 browser_close 关闭浏览器
+```
