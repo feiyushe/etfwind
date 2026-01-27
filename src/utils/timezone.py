@@ -63,17 +63,3 @@ def format_beijing(dt, fmt: str = "%Y-%m-%d %H:%M:%S") -> str:
     if beijing_dt is None:
         return ""
     return beijing_dt.strftime(fmt)
-
-
-def format_time_only(dt) -> str:
-    """只显示时间 HH:MM"""
-    return format_beijing(dt, "%H:%M")
-
-
-def to_utc_iso(dt: datetime) -> str:
-    """转换为 UTC ISO 格式字符串（用于存储）"""
-    if dt is None:
-        return None
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=BEIJING_TZ)
-    return dt.astimezone(timezone.utc).isoformat()
