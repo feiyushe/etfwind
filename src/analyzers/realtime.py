@@ -1,7 +1,9 @@
 """简化版投资分析 - 无数据库，实时分析"""
 
+import asyncio
 import json
 from datetime import datetime, timezone, timedelta
+from collections import Counter
 from loguru import logger
 import httpx
 
@@ -15,7 +17,11 @@ _cache = {
     "result": None,
     "updated_at": None,
     "news_count": 0,
+    "source_stats": {},  # 各来源采集统计
 }
+
+# 定时任务控制
+_scheduler_task = None
 
 ANALYSIS_PROMPT = """你是A股ETF投资分析师。分析以下财经新闻，输出投资参考。
 
@@ -46,12 +52,14 @@ ANALYSIS_PROMPT = """你是A股ETF投资分析师。分析以下财经新闻，�
 """
 
 
-async def collect_news() -> list[NewsItem]:
-    """采集所有源的新闻"""
+async def collect_news() -> tuple[list[NewsItem], dict]:
+    """采集所有源的新闻，返回 (新闻列表, 来源统计)"""
     agg = NewsAggregator(include_international=True, include_playwright=True)
     try:
         news = await agg.collect_all()
-        return news.items
+        # 统计各来源数量
+        stats = Counter(item.source for item in news.items)
+        return news.items, dict(stats)
     finally:
         await agg.close()
 
@@ -105,8 +113,8 @@ async def refresh() -> dict:
     global _cache
 
     logger.info("开始采集新闻...")
-    items = await collect_news()
-    logger.info(f"采集到 {len(items)} 条新闻")
+    items, source_stats = await collect_news()
+    logger.info(f"采集到 {len(items)} 条新闻: {source_stats}")
 
     logger.info("开始AI分析...")
     result = await analyze(items)
@@ -116,6 +124,7 @@ async def refresh() -> dict:
         "result": result,
         "updated_at": datetime.now(beijing_tz),
         "news_count": len(items),
+        "source_stats": source_stats,
     }
 
     logger.info("分析完成")
@@ -142,3 +151,34 @@ async def get_or_refresh(max_age_minutes: int = 60) -> dict:
         return await refresh()
 
     return _cache["result"]
+
+
+async def _scheduler_loop(interval_minutes: int = 30):
+    """定时刷新循环"""
+    while True:
+        try:
+            await asyncio.sleep(interval_minutes * 60)
+            logger.info(f"定时刷新开始 (间隔 {interval_minutes} 分钟)")
+            await refresh()
+        except asyncio.CancelledError:
+            logger.info("定时任务已取消")
+            break
+        except Exception as e:
+            logger.error(f"定时刷新失败: {e}")
+
+
+def start_scheduler(interval_minutes: int = 30):
+    """启动定时任务"""
+    global _scheduler_task
+    if _scheduler_task is None:
+        _scheduler_task = asyncio.create_task(_scheduler_loop(interval_minutes))
+        logger.info(f"定时任务已启动，间隔 {interval_minutes} 分钟")
+
+
+def stop_scheduler():
+    """停止定时任务"""
+    global _scheduler_task
+    if _scheduler_task:
+        _scheduler_task.cancel()
+        _scheduler_task = None
+        logger.info("定时任务已停止")
