@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "postToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "command": "./scripts/auto_commit.sh"
+      }
+    ]
+  }
+}

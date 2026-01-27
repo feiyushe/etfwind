@@ -2,8 +2,8 @@ name: Daily Investment News
 
 on:
   schedule:
-    # 每 5 分钟运行
-    - cron: '*/5 * * * *'
+    # 每 30 分钟运行
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 jobs:
