@@ -24,7 +24,7 @@ jobs:
         run: pip install .
 
       - name: Install Playwright browsers
-        run: playwright install chromium --with-deps
+        run: python -m playwright install chromium --with-deps
 
       - name: Run collection and analysis
         env:
