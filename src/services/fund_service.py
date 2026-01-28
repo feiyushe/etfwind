@@ -341,10 +341,13 @@ class FundService:
                         "name": etf["name"],
                         "sector": sector,
                         "amount_yi": round(etf["amount"] / 1e8, 2),
+                        "change_5d": 0,
+                        "change_20d": 0,
+                        "kline": [],
                         "desc": "",
                     }
 
-        # 批量获取原始信息
+        # 批量获取原始信息和K线
         logger.info(f"获取 {len(result_etfs)} 个ETF的信息...")
         async with httpx.AsyncClient(headers=self.headers, timeout=30) as client:
             sem = asyncio.Semaphore(5)
@@ -358,6 +361,16 @@ class FundService:
             tasks = [fetch_info(code) for code in result_etfs.keys()]
             raw_infos = await asyncio.gather(*tasks, return_exceptions=True)
             raw_infos = [r for r in raw_infos if isinstance(r, dict) and r.get("code")]
+
+            # 获取K线数据
+            logger.info("获取K线数据...")
+            for code in result_etfs.keys():
+                secid = f"1.{code}" if code.startswith("5") else f"0.{code}"
+                kline_data = await self._get_kline_changes(client, secid)
+                if kline_data:
+                    result_etfs[code]["change_5d"] = kline_data.get("change_5d", 0)
+                    result_etfs[code]["change_20d"] = kline_data.get("change_20d", 0)
+                    result_etfs[code]["kline"] = kline_data.get("kline", [])
 
             # AI 批量精炼描述（每批20个）
             logger.info("AI精炼描述...")
@@ -614,27 +627,6 @@ class FundService:
                             "flow_pct": flow_pct,  # 主力净占比%
                             "turnover": turnover,  # 换手率%
                         }
-                        # 确保 code_to_secid 映射存在（新浪回退时可能缺失）
-                        if code not in code_to_secid:
-                            if code.startswith("5"):
-                                code_to_secid[code] = f"1.{code}"
-                            else:
-                                code_to_secid[code] = f"0.{code}"
-
-                # 2. 并发获取K线计算多周期涨跌幅（东方财富K线API）
-                tasks = []
-                codes_list = list(result.keys())
-                for code in codes_list:
-                    secid = code_to_secid.get(code, "")
-                    tasks.append(self._get_kline_changes(client, secid))
-
-                if tasks:
-                    kline_results = await asyncio.gather(*tasks, return_exceptions=True)
-                    for code, kline_data in zip(codes_list, kline_results):
-                        if isinstance(kline_data, dict):
-                            result[code]["change_5d"] = kline_data.get("change_5d", 0)
-                            result[code]["change_20d"] = kline_data.get("change_20d", 0)
-                            result[code]["kline"] = kline_data.get("kline", [])
 
                 return result
         except Exception as e:
@@ -754,6 +746,41 @@ class FundService:
             reverse=True
         )
         return sorted_etfs[:limit]
+
+    async def batch_get_sector_etfs(self, sectors: list[str], limit: int = 3) -> dict[str, list[dict]]:
+        """批量获取多个板块的ETF数据（优化：一次获取板块映射，合并ETF请求）"""
+        if not sectors:
+            return {}
+
+        # 一次获取板块映射
+        sector_map = await self.get_sector_etf_map()
+
+        # 收集所有需要查询的ETF代码
+        sector_codes: dict[str, list[str]] = {}
+        all_codes = set()
+
+        for sector in sectors:
+            for key, etfs in sector_map.items():
+                if key in sector or sector in key:
+                    codes = [code for code, name in etfs[:limit]]
+                    sector_codes[sector] = codes
+                    all_codes.update(codes)
+                    break
+
+        if not all_codes:
+            return {}
+
+        # 一次批量获取所有ETF数据
+        all_data = await self.batch_get_funds(list(all_codes))
+
+        # 按板块组织结果
+        result = {}
+        for sector, codes in sector_codes.items():
+            etfs = [all_data[c] for c in codes if c in all_data]
+            etfs.sort(key=lambda x: x.get("amount_yi", 0), reverse=True)
+            result[sector] = etfs[:limit]
+
+        return result
 
 
 # 单例

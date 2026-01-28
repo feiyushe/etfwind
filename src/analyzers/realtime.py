@@ -109,7 +109,25 @@ async def analyze(items: list[NewsItem]) -> dict:
         elif "```" in text:
             text = text.split("```")[1].split("```")[0]
 
-        return json.loads(text)
+        # 尝试解析，失败则修复常见问题
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as e:
+            import re
+            logger.warning(f"JSON 解析失败，尝试修复: {e}")
+            logger.debug(f"原始文本: {text[:500]}...")
+            # 修复：移除尾部逗号
+            text = re.sub(r',(\s*[}\]])', r'\1', text)
+            # 修复：中文引号替换
+            text = text.replace('"', '"').replace('"', '"')
+            # 修复：字符串内的换行
+            text = re.sub(r'(?<!\\)\n(?=[^"]*"[^"]*$)', ' ', text)
+            try:
+                return json.loads(text)
+            except json.JSONDecodeError as e2:
+                logger.error(f"修复后仍失败: {e2}")
+                logger.error(f"问题文本片段: {text[max(0,e2.pos-50):e2.pos+50]}")
+                raise
     except Exception as e:
         logger.error(f"分析失败: {e}")
         return {}

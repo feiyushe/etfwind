@@ -4,25 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AI投资助手 - 自动采集财经新闻，通过 Claude AI 分析生成投资建议和ETF推荐，部署在 Fly.io。
+AI投资助手 - 自动采集财经新闻，通过 Claude AI 分析生成投资建议和ETF推荐，部署在 Cloudflare Workers。
 
 ## Commands
 
 ```bash
-# 启动 Web 服务（本地开发，简化版）
-uv run uvicorn src.web.app_simple:app --reload --port 8000
-
-# 启动 Web 服务（完整版，需要 Supabase）
-uv run uvicorn src.web.app:app --reload --port 8000
-
 # 手动运行采集+分析（输出到 src/web/data/）
 PYTHONPATH=. uv run python -m src.worker_simple
 
-# 部署到 Fly.io
-fly deploy
+# 部署 Workers 前端
+cd workers && npx wrangler deploy
 
-# 查看生产日志
-fly logs --app invest-report --no-tail | tail -50
+# 本地开发 Workers
+cd workers && npx wrangler dev
 ```
 
 ## Architecture
@@ -34,29 +28,16 @@ worker_simple.py → collectors/ → realtime.py → src/web/data/*.json
                    (10个采集器)   (Claude API)        ↓
                                               wrangler 上传到 R2
                                                      ↓
-                                              Fly.io (app_simple.py)
-                                              从 Cloudflare R2 读取 JSON
+                                              Cloudflare Workers (workers/)
+                                              从 R2 Binding 读取 JSON
 ```
 
-**两种运行模式：**
-
-1. **简化模式（当前使用）**：
-   - GitHub Actions 运行 `worker_simple.py` 采集+分析
-   - 结果通过 wrangler 上传到 Cloudflare R2
-   - Fly.io 运行 `app_simple.py`，从 R2 公开 URL 读取数据
-   - 无需数据库，轻量部署
-
-2. **完整模式（可选）**：
-   - 使用 Supabase 数据库存储新闻和分析结果
-   - Fly.io 运行 `app.py`，支持 SSE 实时推送
-   - 适合需要历史数据的场景
-
 **关键模块：**
-- `src/worker_simple.py`: 简化版采集+分析，输出 JSON 文件
+- `src/worker_simple.py`: 采集+分析，输出 JSON 文件
 - `src/analyzers/realtime.py`: 实时分析器，调用 Claude API
-- `src/services/fund_service.py`: ETF 实时行情服务（东方财富/新浪 API）
-- `src/web/app_simple.py`: 简化版 FastAPI，从 GitHub 读取数据
-- `src/web/app.py`: 完整版 FastAPI，含 Supabase 和 SSE
+- `workers/src/index.ts`: Hono 路由，从 R2 读取数据
+- `workers/src/pages/Home.ts`: 首页渲染
+- `workers/src/services/fund.ts`: ETF 实时行情（东方财富 API）
 
 **采集器（src/collectors/）：**
 - **普通采集器**：CLSNewsCollector、EastMoneyCollector、SinaFinanceCollector
@@ -77,16 +58,12 @@ Cloudflare R2（数据存储）：
 - 公开 URL: `https://pub-bf3ac083583c4798b8f0091067ae106d.r2.dev`
 - GitHub Secrets: `CLOUDFLARE_API_TOKEN`
 
-可选（完整模式）：
-- `SUPABASE_URL`: Supabase 项目 URL
-- `SUPABASE_KEY`: Supabase anon key
-
 ## Deployment
 
-- **Web**: Fly.io（新加坡，256MB，auto_stop）
+- **Web**: Cloudflare Workers（`workers/`）
 - **采集/分析**: GitHub Actions（每 30 分钟，含 Playwright）
 - **数据存储**: Cloudflare R2（`invest-data` bucket）
-- **URL**: https://invest-report.fly.dev/
+- **URL**: https://etf.aurora-ai.workers.dev/
 
 ## Key Data Structures
 
@@ -133,24 +110,26 @@ Cloudflare R2（数据存储）：
 
 ## API Endpoints
 
-**简化版 (app_simple.py)：**
-- `GET /` - 首页，渲染 simple.html
-- `GET /api/data` - 返回分析数据 JSON
+**Workers (workers/src/index.ts)：**
+- `GET /` - 首页
+- `GET /news` - 新闻列表
+- `GET /api/data` - 分析数据 JSON
 - `GET /api/funds?codes=518880,512760` - ETF 实时行情
-- `GET /api/hot-etfs?limit=10` - 热门 ETF（按成交额排序）
+- `GET /api/batch-sector-etfs?sectors=黄金,芯片` - 批量板块 ETF
+- `GET /api/etf-master` - ETF 主数据
 - `GET /health` - 健康检查
 
 ## Tech Stack
 
-**后端：** Python 3.11+ / FastAPI / Uvicorn / Jinja2
+**前端：** Cloudflare Workers / Hono / TypeScript
 
 **AI：** Claude API (httpx 直接调用)
 
-**数据源：** 东方财富 API / 新浪财经 API（回退）
+**数据源：** 东方财富 API
 
 **采集：** httpx / BeautifulSoup / Playwright（GitHub Actions）
 
-**部署：** Fly.io / GitHub Actions / uv (包管理)
+**部署：** Cloudflare Workers + R2 / GitHub Actions / uv (包管理)
 
 ## Lessons Learned
 
@@ -189,3 +168,31 @@ step2 = "对于事件'{title}'，提供：1.所属板块 2.分析(80字) 3.建�
 step3 = "事件'{title}'相关的ETF代码是？从候选列表中选择：{etf_list}"
 # 代码负责组装最终结构，并从原始新闻中提取 sources
 ```
+
+## AI 工作方法论
+
+### 核心循环
+
+**发现 → 理解 → 计划 → 执行 → 试错 → 反馈 → 修正 → 迭代 → 反思**
+
+### 关键原则
+
+1. **突破需要想象力**
+   - 避免路径依赖，适当发散思考
+   - 大方向和策略的改变比细节优化更重要
+   - 工具放大改变的效果和范围（对的和错的都会放大）
+
+2. **积极使用工具**
+   - 主动使用 skill、plugin、command
+   - AI 只说不做无法产生改变
+   - 代码无差别，随时可以重构
+
+3. **从错误中学习**
+   - 及时反思总结，增加到 CLAUDE.md
+   - 通过 demo 和 case 学习，提取抽象可复制的经验
+   - 意识到环境和反馈对自己的影响
+
+4. **最小化 vs 最积极**
+   - 架构足够好时，个体智能不需要太高
+   - 最小化使用 AI（简单任务）
+   - 最积极使用 AI（复杂决策、创意生成）
