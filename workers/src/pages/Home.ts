@@ -98,10 +98,6 @@ function renderSectorCard(sector: any, etfMaster: Record<string, any>): string {
   }
 
   const etfTableHtml = `
-    <div class="etf-labels">
-      <span>当日行情</span>
-      <span>20日历史</span>
-    </div>
     <table class="etf-table" data-sector="${sector.name}">
       <thead>
         <tr>
