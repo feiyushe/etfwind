@@ -2,44 +2,23 @@
 export const styles = `
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f5f5; color: #333; line-height: 1.4; font-size: 14px; }
-.container { max-width: 1600px; margin: 0 auto; padding: 16px 24px; }
+.container { max-width: 1400px; margin: 0 auto; padding: 16px 24px; }
 header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: nowrap; overflow-x: auto; }
-header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-.meta { color: #999; font-size: 12px; }
-.news-total { font-size: 12px; color: #0066cc; text-decoration: none; }
+header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; flex-shrink: 0; }
+.meta { color: #999; font-size: 12px; flex-shrink: 0; white-space: nowrap; }
+.news-total { font-size: 12px; color: #0066cc; text-decoration: none; flex-shrink: 0; white-space: nowrap; }
 .news-total:hover { text-decoration: underline; }
 .github-link { display: inline-flex; align-items: center; color: #6b7280; margin-left: auto; }
 .github-link:hover { color: #374151; }
 .powered-by { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #D97706; text-decoration: none; }
 .powered-by:hover { color: #B45309; }
-.source-stats { display: flex; flex-wrap: nowrap; gap: 4px; flex-shrink: 0; }
-.source-stats a { font-size: 11px; padding: 4px 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; text-decoration: none; color: #6b7280; transition: all 0.15s; }
+.source-stats { display: flex; flex-wrap: nowrap; gap: 4px; flex-shrink: 1; overflow: hidden; }
+.source-stats a { font-size: 11px; padding: 4px 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; text-decoration: none; color: #6b7280; transition: all 0.15s; flex-shrink: 0; }
 .source-stats a:hover { background: #f3f4f6; border-color: #d1d5db; color: #374151; }
 .card { background: #fff; border-radius: 10px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
 .card h2 { font-size: 16px; margin-bottom: 6px; color: #1a1a1a; }
 .card p { font-size: 13px; color: #555; }
 .sectors-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-@media (max-width: 600px) {
-  .container { padding: 12px; }
-  header { flex-wrap: wrap; gap: 6px; }
-  header h1 { font-size: 18px; }
-  .source-stats { flex-wrap: wrap; width: 100%; margin-top: 4px; }
-  .source-stats a { font-size: 10px; padding: 3px 8px; }
-  .github-link, .powered-by { display: none; }
-  .sectors-grid { grid-template-columns: 1fr; }
-  .card h2 { font-size: 15px; }
-  .card p { font-size: 12px; }
-  .sector-name { font-size: 15px; }
-  .sector-analysis { font-size: 11px; }
-  .sector-card { overflow-x: hidden; }
-  .etf-table { font-size: 12px; table-layout: fixed; }
-  .etf-table td:nth-child(2), .etf-table td:nth-child(4) { display: none; width: 0; padding: 0; }
-  .etf-table td:nth-child(3) { border-left: none; }
-  .etf-table td:nth-child(5) { border-left: none; }
-  .etf-table .sparkline { width: 60px; }
-  .etf-labels span:first-child { margin-left: 40%; width: 30%; }
-  .etf-labels span:last-child { width: 30%; }
-}
 .sector-card { background: #fff; border-radius: 10px; padding: 10px 12px; border: none; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
 .sector-card.up { background: #fffbf7; border-left: 3px solid #f97316; }
 .sector-card.up.heat-4 { border-left-color: #ea580c; }
@@ -56,18 +35,44 @@ header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(135de
 .sector-name { font-size: 17px; font-weight: 700; color: #1f2937; }
 .sector-heat { font-size: 12px; color: #fbbf24; letter-spacing: -1px; }
 .sector-analysis { font-size: 12px; color: #64748b; margin-bottom: 6px; line-height: 1.5; }
-.etf-labels { display: flex; font-size: 11px; color: #9ca3af; margin-bottom: 4px; }
-.etf-labels span:first-child { margin-left: 32%; width: 36%; text-align: center; }
-.etf-labels span:last-child { width: 32%; text-align: center; }
-.etf-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.etf-table thead { display: none; }
-.etf-table td { padding: 2px 4px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
-.etf-table td:nth-child(2) { padding-left: 10px; border-left: 1px solid #e2e8f0; }
-.etf-table td:nth-child(5) { padding-left: 10px; border-left: 1px solid #e2e8f0; }
-.etf-table td:last-child { width: 80px; }
-.etf-table .sparkline { width: 80px; height: 16px; }
+.etf-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+.etf-table thead th { font-size: 11px; color: #9ca3af; font-weight: normal; padding: 4px; text-align: left; }
+.etf-table thead th:nth-child(1) { text-align: center; }
+.etf-table thead th:nth-child(6) { text-align: center; }
+.etf-table td, .etf-table th { padding: 2px 4px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; overflow: hidden; }
+.etf-table td:nth-child(1), .etf-table th:nth-child(1) { width: 25%; }
+.etf-table td:nth-child(2), .etf-table th:nth-child(2) { width: 12%; text-align: right; }
+.etf-table td:nth-child(3), .etf-table th:nth-child(3) { width: 12%; text-align: right; }
+.etf-table td:nth-child(4), .etf-table th:nth-child(4) { width: 12%; text-align: right; }
+.etf-table td:nth-child(5), .etf-table th:nth-child(5) { width: 14%; text-align: right; padding-left: 10px; border-left: 1px solid #e2e8f0; }
+.etf-table td:nth-child(6), .etf-table th:nth-child(6) { width: 25%; }
+.etf-table .sparkline { width: 100%; height: 16px; }
 .etf-table .up { color: #dc2626; }
 .etf-table .down { color: #16a34a; }
 .etf-table a { color: #0066cc; text-decoration: none; }
 .etf-table a:hover { text-decoration: underline; }
+@media (max-width: 600px) {
+  .container { padding: 12px; }
+  header { flex-wrap: wrap; gap: 6px; }
+  header h1 { font-size: 18px; }
+  .source-stats { flex-wrap: wrap; width: 100%; margin-top: 4px; }
+  .source-stats a { font-size: 10px; padding: 3px 8px; }
+  .github-link, .powered-by { display: none; }
+  .sectors-grid { grid-template-columns: 1fr; }
+  .card h2 { font-size: 15px; }
+  .card p { font-size: 12px; }
+  .sector-name { font-size: 15px; }
+  .sector-analysis { font-size: 11px; }
+  .sector-card { overflow-x: hidden; }
+  .etf-table { font-size: 12px; table-layout: fixed; }
+  .etf-table thead { display: none; }
+  .etf-table td:nth-child(1) { width: 34%; }
+  .etf-table td:nth-child(2) { width: 10%; }
+  .etf-table td:nth-child(3) { width: 11%; }
+  .etf-table td:nth-child(4) { display: none; width: 0; padding: 0; }
+  .etf-table td:nth-child(5) { width: 15%; }
+  .etf-table td:nth-child(6) { width: 30%; text-align: right; }
+  .etf-table td:nth-child(2), .etf-table td:nth-child(3), .etf-table td:nth-child(5) { border-left: none; }
+  .etf-table .sparkline { width: 100%; }
+}
 `

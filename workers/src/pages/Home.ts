@@ -51,8 +51,8 @@ async function loadSectorEtfs() {
 function renderEtfs(table, etfs) {
   if (!etfs.length) return;
   const cls = v => v >= 0 ? 'up' : 'down';
-  const fmt = v => (v > 0 ? '+' : '') + v.toFixed(2) + '%';
-  const fmtPrice = v => v == null ? '--' : v.toFixed(3);
+  const fmt = v => Math.abs(v).toFixed(1) + '%';
+  const fmtPrice = v => v == null ? '--' : v.toFixed(2);
   // 只更新实时数据列
   for (const f of etfs) {
     const row = table.querySelector(\`tr[data-code="\${f.code}"]\`);
@@ -91,22 +91,18 @@ function renderSectorCard(sector: any, etfMaster: Record<string, any>): string {
         <td class="price">--</td>
         <td class="change">--</td>
         <td class="amount">--</td>
-        <td class="${f.change_20d >= 0 ? 'up' : 'down'}">${f.change_20d > 0 ? '+' : ''}${f.change_20d.toFixed(2)}%</td>
-        <td>${f.kline?.length ? `<svg class="sparkline" width="80" height="16"><polyline points="${f.kline.map((v: number, i: number) => `${i * 80 / (f.kline.length - 1)},${16 - (v - Math.min(...f.kline)) / (Math.max(...f.kline) - Math.min(...f.kline) || 1) * 16}`).join(' ')}" fill="none" stroke="${f.kline[f.kline.length-1] >= f.kline[0] ? '#dc2626' : '#16a34a'}" stroke-width="1.2"/></svg>` : '-'}</td>
+        <td class="${f.change_20d >= 0 ? 'up' : 'down'}">${Math.abs(f.change_20d).toFixed(1)}%</td>
+        <td>${f.kline?.length ? `<svg class="sparkline" viewBox="0 0 100 16" preserveAspectRatio="none"><polyline points="${f.kline.map((v: number, i: number) => `${i * 100 / (f.kline.length - 1)},${16 - (v - Math.min(...f.kline)) / (Math.max(...f.kline) - Math.min(...f.kline) || 1) * 16}`).join(' ')}" fill="none" stroke="${f.kline[f.kline.length-1] >= f.kline[0] ? '#dc2626' : '#16a34a'}" stroke-width="1.2"/></svg>` : '-'}</td>
       </tr>
     `).join('')
   }
 
   const etfTableHtml = `
-    <div class="etf-labels">
-      <span>当日行情</span>
-      <span>20日走势</span>
-    </div>
     <table class="etf-table" data-sector="${sector.name}">
       <thead>
         <tr>
           <th>ETF推荐</th><th>价格</th>
-          <th>今日</th><th>成交</th><th>20日</th><th>走势</th>
+          <th>日涨跌</th><th>日成交</th><th>20日涨跌</th><th>20日走势</th>
         </tr>
       </thead>
       <tbody>${tbodyHtml}</tbody>
@@ -143,7 +139,8 @@ export function renderHome(data: LatestData, etfMaster: Record<string, any>): st
 
   // 排序：利好优先，然后按热度从高到低
   const dirOrder: Record<string, number> = { '利好': 0, '中性': 1, '利空': 2 }
-  const sortedSectors = [...result.sectors].sort((a, b) => {
+  const sectors = result.sectors || []
+  const sortedSectors = [...sectors].sort((a, b) => {
     const dirDiff = (dirOrder[a.direction] ?? 1) - (dirOrder[b.direction] ?? 1)
     if (dirDiff !== 0) return dirDiff
     return b.heat - a.heat

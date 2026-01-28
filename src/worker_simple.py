@@ -16,6 +16,90 @@ from src.services.fund_service import fund_service
 DATA_DIR = Path(__file__).parent / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
+# 归档目录
+ARCHIVE_DIR = DATA_DIR / "archive"
+ARCHIVE_DIR.mkdir(exist_ok=True)
+
+
+def archive_data(beijing_tz):
+    """归档数据：当天保留，7天每天一份，1月每周一份，1年每月一份"""
+    now = datetime.now(beijing_tz)
+    today = now.strftime("%Y-%m-%d")
+
+    # 归档 latest.json 到当天
+    latest_file = DATA_DIR / "latest.json"
+    if latest_file.exists():
+        daily_file = ARCHIVE_DIR / f"latest_{today}.json"
+        if not daily_file.exists():
+            import shutil
+            shutil.copy(latest_file, daily_file)
+            logger.info(f"归档到 {daily_file}")
+
+    # 清理旧归档
+    cleanup_archives(now)
+
+
+def cleanup_archives(now: datetime):
+    """清理归档：7天内每天保留，30天内每周保留，1年内每月保留"""
+    archive_files = sorted(ARCHIVE_DIR.glob("latest_*.json"))
+
+    for f in archive_files:
+        # 解析日期
+        try:
+            date_str = f.stem.replace("latest_", "")
+            file_date = datetime.strptime(date_str, "%Y-%m-%d")
+        except ValueError:
+            continue
+
+        days_ago = (now - file_date).days
+
+        # 7天内：全部保留
+        if days_ago <= 7:
+            continue
+
+        # 7-30天：只保留周一
+        if days_ago <= 30:
+            if file_date.weekday() != 0:  # 不是周一
+                f.unlink()
+                logger.info(f"清理归档 {f.name}（非周一）")
+            continue
+
+        # 30天-1年：只保留每月1号
+        if days_ago <= 365:
+            if file_date.day != 1:  # 不是1号
+                f.unlink()
+                logger.info(f"清理归档 {f.name}（非月初）")
+            continue
+
+        # 超过1年：删除
+        f.unlink()
+        logger.info(f"清理归档 {f.name}（超过1年）")
+
+
+async def save_news(news_items, beijing_tz):
+    """保存新闻列表"""
+    aggregator_urls = [
+        "https://www.jin10.com/",
+        "https://wallstreetcn.com/live",
+        "https://kuaixun.eastmoney.com/",
+    ]
+    news_list = [
+        {
+            "title": item.title,
+            "source": item.source,
+            "url": item.url,
+            "published_at": item.published_at.isoformat() if item.published_at else None,
+        }
+        for item in news_items
+        if item.url and not any(item.url.startswith(agg) for agg in aggregator_urls)
+    ]
+    news_file = DATA_DIR / "news.json"
+    news_file.write_text(json.dumps({
+        "news": news_list,
+        "updated_at": datetime.now(beijing_tz).isoformat(),
+    }, ensure_ascii=False, indent=2))
+    logger.info(f"新闻列表已保存到 {news_file}")
+
 
 async def run():
     """运行采集和分析"""
@@ -49,16 +133,24 @@ async def run():
     output_file = DATA_DIR / "latest.json"
     beijing_tz = timezone(timedelta(hours=8))
 
+    # 先归档当前数据
+    archive_data(beijing_tz)
+
+    # AI 分析结果无效时，不覆盖文件
     if not result or not result.get("sectors"):
-        logger.warning("AI 分析结果为空，保留历史数据")
-        # 尝试读取历史数据
+        logger.warning("AI 分析结果为空，不覆盖历史数据")
+        # 尝试读取历史数据用于后续处理
         if output_file.exists():
             try:
                 old_data = json.loads(output_file.read_text())
                 result = old_data.get("result", {})
-                logger.info("已恢复历史分析结果")
+                logger.info("使用历史分析结果")
             except Exception as e:
                 logger.error(f"读取历史数据失败: {e}")
+        # 即使分析失败，也保存新闻数据
+        await save_news(news.items, beijing_tz)
+        await fetch_etf_map()
+        return None
 
     # 为每个板块匹配 ETF
     await enrich_sectors_with_etfs(result)
@@ -74,29 +166,8 @@ async def run():
     output_file.write_text(json.dumps(output, ensure_ascii=False, indent=2))
     logger.info(f"结果已保存到 {output_file}")
 
-    # 保存原始新闻列表（过滤聚合页面，只保留有具体文章URL的新闻）
-    # 聚合页面通常是首页或列表页，不是具体文章
-    aggregator_urls = [
-        "https://www.jin10.com/",
-        "https://wallstreetcn.com/live",
-        "https://kuaixun.eastmoney.com/",
-    ]
-    news_list = [
-        {
-            "title": item.title,
-            "source": item.source,
-            "url": item.url,
-            "published_at": item.published_at.isoformat() if item.published_at else None,
-        }
-        for item in news.items
-        if item.url and not any(item.url.startswith(agg) for agg in aggregator_urls)
-    ]
-    news_file = DATA_DIR / "news.json"
-    news_file.write_text(json.dumps({
-        "news": news_list,
-        "updated_at": datetime.now(beijing_tz).isoformat(),
-    }, ensure_ascii=False, indent=2))
-    logger.info(f"新闻列表已保存到 {news_file}")
+    # 保存新闻列表
+    await save_news(news.items, beijing_tz)
 
     # 生成 ETF 板块映射（每天一次）
     await fetch_etf_map()

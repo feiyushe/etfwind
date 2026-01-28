@@ -1,6 +1,7 @@
 """采集器模块"""
 
 import asyncio
+import random
 from datetime import datetime
 
 from loguru import logger
@@ -70,11 +71,12 @@ class NewsAggregator:
         for items in results:
             all_items.extend(items)
 
-        # Playwright 采集器（串行执行，增加间隙避免被封）
+        # Playwright 采集器（串行执行，随机间隙避免被封）
         for i, pw_collector in enumerate(self.playwright_collectors):
             try:
                 if i > 0:
-                    await asyncio.sleep(3)  # 每个采集器之间间隔3秒
+                    delay = random.uniform(1.0, 2.5)  # 随机1-2.5秒
+                    await asyncio.sleep(delay)
                 pw_items = await pw_collector.safe_collect()
                 all_items.extend(pw_items)
             except Exception as e:
