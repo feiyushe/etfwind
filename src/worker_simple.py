@@ -50,7 +50,13 @@ async def run():
     output_file.write_text(json.dumps(output, ensure_ascii=False, indent=2))
     logger.info(f"结果已保存到 {output_file}")
 
-    # 保存原始新闻列表
+    # 保存原始新闻列表（过滤聚合页面，只保留有具体文章URL的新闻）
+    # 聚合页面通常是首页或列表页，不是具体文章
+    aggregator_urls = [
+        "https://www.jin10.com/",
+        "https://wallstreetcn.com/live",
+        "https://kuaixun.eastmoney.com/",
+    ]
     news_list = [
         {
             "title": item.title,
@@ -59,6 +65,7 @@ async def run():
             "published_at": item.published_at.isoformat() if item.published_at else None,
         }
         for item in news.items
+        if item.url and not any(item.url.startswith(agg) for agg in aggregator_urls)
     ]
     news_file = DATA_DIR / "news.json"
     news_file.write_text(json.dumps({
@@ -145,7 +152,7 @@ async def fetch_etf_map(force: bool = False):
     logger.info("生成 ETF Master 数据...")
     try:
         fund_service._etf_cache_time = 0
-        master = await fund_service.build_etf_master(top_n=3)
+        master = await fund_service.build_etf_master(min_amount_yi=5.0)
 
         if not master.get("etfs"):
             logger.warning("未获取到ETF数据")

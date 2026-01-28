@@ -310,48 +310,46 @@ class FundService:
         logger.info(f"更新ETF板块映射，共 {len(sector_map)} 个板块")
         return sector_map
 
-    async def build_etf_master(self, top_n: int = 3) -> dict:
-        """构建 ETF Master 数据（含描述）"""
+    async def build_etf_master(self, min_amount_yi: float = 0.5) -> dict:
+        """构建 ETF Master 数据
+
+        流程：
+        1. 获取全量 ETF（代码+名称+成交额）
+        2. 按成交额排序，筛选日成交额 > min_amount_yi 亿的
+        3. 对筛选后的 ETF 拉详细介绍 + AI 精炼
+        4. 按名称关键词分类到板块
+        """
+        # Step 1: 获取全量 ETF
         etfs = await self._fetch_all_etfs()
         if not etfs:
             return {"etfs": {}, "sectors": {}}
 
-        # 按板块分类
-        sector_map: dict[str, list] = {}
-        for etf in etfs:
-            sector = self._classify_etf(etf["name"])
-            if sector:
-                if sector not in sector_map:
-                    sector_map[sector] = []
-                sector_map[sector].append(etf)
+        # Step 2: 按成交额排序，筛选有投资意义的（日成交额 > 0.5亿）
+        etfs.sort(key=lambda x: x["amount"], reverse=True)
+        min_amount = min_amount_yi * 1e8
+        active_etfs = [e for e in etfs if e["amount"] >= min_amount]
+        logger.info(f"筛选日成交额>{min_amount_yi}亿：{len(active_etfs)}/{len(etfs)} 个ETF")
 
-        # 每个板块按成交额排序，取前N个
+        # 构建结果字典
         result_etfs = {}
-        result_sectors = {}
+        for etf in active_etfs:
+            result_etfs[etf["code"]] = {
+                "code": etf["code"],
+                "name": etf["name"],
+                "amount_yi": round(etf["amount"] / 1e8, 2),
+                "sector": self._classify_etf(etf["name"]) or "其他",
+                "change_5d": 0,
+                "change_20d": 0,
+                "kline": [],
+                "desc": "",
+            }
 
-        for sector, etf_list in sector_map.items():
-            etf_list.sort(key=lambda x: x["amount"], reverse=True)
-            top_etfs = etf_list[:top_n]
-            result_sectors[sector] = [e["code"] for e in top_etfs]
-
-            for etf in top_etfs:
-                if etf["code"] not in result_etfs:
-                    result_etfs[etf["code"]] = {
-                        "code": etf["code"],
-                        "name": etf["name"],
-                        "sector": sector,
-                        "amount_yi": round(etf["amount"] / 1e8, 2),
-                        "change_5d": 0,
-                        "change_20d": 0,
-                        "kline": [],
-                        "desc": "",
-                    }
-
-        # 批量获取原始信息和K线
-        logger.info(f"获取 {len(result_etfs)} 个ETF的信息...")
+        # Step 3: 获取详细信息和K线
+        logger.info(f"获取 {len(result_etfs)} 个ETF详情...")
         async with httpx.AsyncClient(headers=self.headers, timeout=30) as client:
             sem = asyncio.Semaphore(5)
 
+            # 获取基金详情
             async def fetch_info(code):
                 async with sem:
                     info = await self._fetch_etf_raw_info(client, code)
@@ -372,14 +370,28 @@ class FundService:
                     result_etfs[code]["change_20d"] = kline_data.get("change_20d", 0)
                     result_etfs[code]["kline"] = kline_data.get("kline", [])
 
-            # AI 批量精炼描述（每批20个）
-            logger.info("AI精炼描述...")
+            # Step 4: AI 批量精炼描述
+            logger.info(f"AI精炼描述（{len(raw_infos)}个）...")
             for i in range(0, len(raw_infos), 20):
                 batch = raw_infos[i:i+20]
                 descs = await self._summarize_etf_desc(client, batch)
                 for code, desc in descs.items():
                     if code in result_etfs:
                         result_etfs[code]["desc"] = desc
+
+        # Step 5: 构建板块索引
+        result_sectors = {}
+        for code, etf in result_etfs.items():
+            sector = etf["sector"]
+            if sector not in result_sectors:
+                result_sectors[sector] = []
+            result_sectors[sector].append(code)
+
+        # 每个板块按成交额排序
+        for sector in result_sectors:
+            result_sectors[sector].sort(
+                key=lambda c: result_etfs[c]["amount_yi"], reverse=True
+            )
 
         return {"etfs": result_etfs, "sectors": result_sectors}
 
@@ -660,36 +672,26 @@ class FundService:
             if not klines:
                 return {}
 
-            # kline格式: 日期,开,收,高,低,成交量
             closes = [float(k.split(",")[2]) for k in klines]
             today_close = closes[-1]
-
             change_5d = 0
             change_20d = 0
 
             if len(closes) >= 6:
                 change_5d = round((today_close - closes[-6]) / closes[-6] * 100, 2)
-
             if len(closes) >= 21:
                 change_20d = round((today_close - closes[-21]) / closes[-21] * 100, 2)
 
-            # 返回近20日收盘价用于sparkline
             kline_data = closes[-20:] if len(closes) >= 20 else closes
-
             result = {
                 "change_5d": change_5d,
                 "change_20d": change_20d,
                 "kline": kline_data,
             }
-            # 存入缓存
             self._kline_cache[secid] = (now, result)
             return result
         except Exception as e:
-            logger.warning(f"东方财富K线失败 {secid}: {e}，尝试新浪")
-            # 回退到新浪K线API
-            code = secid.split(".")[-1] if "." in secid else ""
-            if code:
-                return await self._get_kline_from_sina(client, code)
+            logger.warning(f"东方财富K线失败 {secid}: {e}")
             return {}
 
 
