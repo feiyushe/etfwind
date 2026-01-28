@@ -19,7 +19,24 @@ header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(135de
 .card h2 { font-size: 16px; margin-bottom: 6px; color: #1a1a1a; }
 .card p { font-size: 13px; color: #555; }
 .sectors-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-@media (max-width: 600px) { .sectors-grid { grid-template-columns: 1fr; } }
+@media (max-width: 600px) {
+  .container { padding: 12px; }
+  header { flex-wrap: wrap; gap: 6px; }
+  header h1 { font-size: 18px; }
+  .source-stats { flex-wrap: wrap; width: 100%; margin-top: 4px; }
+  .source-stats a { font-size: 10px; padding: 3px 8px; }
+  .github-link, .powered-by { display: none; }
+  .sectors-grid { grid-template-columns: 1fr; }
+  .card h2 { font-size: 15px; }
+  .card p { font-size: 12px; }
+  .sector-name { font-size: 15px; }
+  .sector-analysis { font-size: 11px; }
+  .etf-table { font-size: 12px; }
+  .etf-table td:nth-child(2), .etf-table td:nth-child(3), .etf-table td:nth-child(4) { display: none; }
+  .etf-table td:nth-child(5) { border-left: none; }
+  .etf-table .sparkline { width: 60px; }
+  .etf-labels { display: none; }
+}
 .sector-card { background: #fff; border-radius: 10px; padding: 10px 12px; border: none; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
 .sector-card.up { background: #fffbf7; border-left: 3px solid #f97316; }
 .sector-card.up.heat-4 { border-left-color: #ea580c; }
