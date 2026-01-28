@@ -121,19 +121,23 @@ async def enrich_sectors_with_etfs(result: dict):
     logger.info("板块ETF匹配完成")
 
 
-async def fetch_etf_map():
-    """生成 ETF Master 数据文件（每天只更新一次）"""
+async def fetch_etf_map(force: bool = False):
+    """生成 ETF Master 数据文件（每周一更新，或强制更新）"""
     etf_file = DATA_DIR / "etf_master.json"
     beijing_tz = timezone(timedelta(hours=8))
-    today = datetime.now(beijing_tz).date().isoformat()
+    now = datetime.now(beijing_tz)
 
-    # 检查是否当天已更新
-    if etf_file.exists():
+    # 检查是否需要更新（每周一，或强制更新）
+    if not force and etf_file.exists():
         try:
             data = json.loads(etf_file.read_text())
             last_update = data.get("updated_at", "")[:10]
-            if last_update == today:
-                logger.info(f"ETF Master 今日已更新，跳过")
+            last_date = datetime.fromisoformat(last_update)
+            # 如果上次更新在本周一之后，跳过
+            days_since_monday = now.weekday()
+            this_monday = (now - timedelta(days=days_since_monday)).date()
+            if last_date.date() >= this_monday:
+                logger.info(f"ETF Master 本周已更新（{last_update}），跳过")
                 return
         except Exception:
             pass
@@ -149,7 +153,7 @@ async def fetch_etf_map():
 
         output = {
             **master,
-            "updated_at": datetime.now(beijing_tz).isoformat(),
+            "updated_at": now.isoformat(),
         }
         etf_file.write_text(json.dumps(output, ensure_ascii=False, indent=2))
         logger.info(f"ETF Master 已保存，共 {len(master['etfs'])} 个ETF")

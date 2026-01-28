@@ -32,6 +32,10 @@ jobs:
           CLAUDE_BASE_URL: ${{ secrets.CLAUDE_BASE_URL }}
         run: python -m src.worker_simple
 
+      - name: Check weekday
+        id: check-day
+        run: echo "weekday=$(date +%u)" >> $GITHUB_OUTPUT
+
       - name: Upload to Cloudflare R2
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -40,4 +44,11 @@ jobs:
         run: |
           aws s3 cp src/web/data/latest.json s3://invest-data/latest.json
           aws s3 cp src/web/data/news.json s3://invest-data/news.json
-          aws s3 cp src/web/data/etf_master.json s3://invest-data/etf_master.json
+
+      - name: Upload ETF Master (Monday only)
+        if: github.event_name == 'workflow_dispatch' || steps.check-day.outputs.weekday == '1'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_ENDPOINT_URL: https://3cd484f565a03d34b3c765a2e17a8989.r2.cloudflarestorage.com
+        run: aws s3 cp src/web/data/etf_master.json s3://invest-data/etf_master.json
