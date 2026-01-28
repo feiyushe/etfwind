@@ -742,7 +742,9 @@ class FundService:
             )
             klines = resp.json().get("data", {}).get("klines", [])
             if not klines:
-                return {}
+                # 东方财富无数据，尝试新浪 API
+                code = secid.split(".")[1]
+                return await self._get_kline_from_sina(client, code)
 
             closes = [float(k.split(",")[2]) for k in klines]
             today_close = closes[-1]
@@ -764,7 +766,9 @@ class FundService:
             return result
         except Exception as e:
             logger.warning(f"东方财富K线失败 {secid}: {e}")
-            return {}
+            # 尝试新浪 API 作为备用
+            code = secid.split(".")[1]
+            return await self._get_kline_from_sina(client, code)
 
 
     async def get_hot_etfs(self, limit: int = 10) -> list[dict]:
