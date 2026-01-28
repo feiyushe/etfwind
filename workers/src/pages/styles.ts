@@ -32,10 +32,10 @@ header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(135de
   .sector-name { font-size: 15px; }
   .sector-analysis { font-size: 11px; }
   .etf-table { font-size: 12px; }
-  .etf-table td:nth-child(2), .etf-table td:nth-child(3), .etf-table td:nth-child(4) { display: none; }
+  .etf-table td:nth-child(2), .etf-table td:nth-child(4) { display: none; }
+  .etf-table td:nth-child(3) { border-left: none; }
   .etf-table td:nth-child(5) { border-left: none; }
   .etf-table .sparkline { width: 60px; }
-  .etf-labels { display: none; }
 }
 .sector-card { background: #fff; border-radius: 10px; padding: 10px 12px; border: none; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
 .sector-card.up { background: #fffbf7; border-left: 3px solid #f97316; }
