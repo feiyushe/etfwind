@@ -1,0 +1,52 @@
+// 板块数据
+export interface Sector {
+  name: string
+  heat: number
+  direction: '利好' | '利空' | '中性'
+  analysis: string
+  news: string[]
+  etfs?: EtfData[]
+}
+
+// 分析结果
+export interface AnalysisResult {
+  market_view: string
+  narrative: string
+  sectors: Sector[]
+  risk_level: string
+}
+
+// API 返回的完整数据
+export interface LatestData {
+  result: AnalysisResult
+  updated_at: string
+  news_count: number
+  source_stats: Record<string, number>
+}
+
+// ETF 数据
+export interface EtfData {
+  code: string
+  name: string
+  price: number
+  change_pct: number
+  change_5d: number
+  change_20d: number
+  amount_yi: number
+  flow_yi: number
+  turnover: number
+  kline: number[]
+}
+
+// 新闻条目
+export interface NewsItem {
+  title: string
+  source: string
+  url: string
+  published_at: string
+}
+
+// Cloudflare 绑定
+export interface Env {
+  R2: R2Bucket
+}

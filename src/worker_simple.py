@@ -12,8 +12,8 @@ from src.collectors import NewsAggregator
 from src.analyzers.realtime import analyze
 from src.services.fund_service import fund_service
 
-# 输出目录 - 放到 src/web/data 避免被 volume 覆盖
-DATA_DIR = Path(__file__).parent / "web" / "data"
+# 输出目录
+DATA_DIR = Path(__file__).parent / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
 

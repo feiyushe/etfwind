@@ -4,12 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AI投资助手 - 自动采集财经新闻，通过 Claude AI 分析生成投资建议和ETF推荐，部署在 Cloudflare Workers。
+ETF风向标 - AI 驱动的 ETF 投资风向分析工具。自动采集财经新闻，通过 Claude AI 分析生成板块研判和 ETF 推荐，部署在 Cloudflare Workers。
+
+**在线访问**: https://etf.aurora-ai.workers.dev/
+**GitHub**: https://github.com/lichengzhe/etfwind
 
 ## Commands
 
 ```bash
-# 手动运行采集+分析（输出到 src/web/data/）
+# 手动运行采集+分析（输出到 src/data/）
 PYTHONPATH=. uv run python -m src.worker_simple
 
 # 部署 Workers 前端
@@ -22,29 +25,23 @@ cd workers && npx wrangler dev
 ## Architecture
 
 ```
-GitHub Actions (每30分钟定时触发)
+GitHub Actions (每30分钟)
         ↓
-worker_simple.py → collectors/ → realtime.py → src/web/data/*.json
+worker_simple.py → collectors/ → realtime.py → src/data/*.json
                    (10个采集器)   (Claude API)        ↓
-                                              wrangler 上传到 R2
-                                                     ↓
-                                              Cloudflare Workers (workers/)
-                                              从 R2 Binding 读取 JSON
+                                              上传到 R2
+                                                   ↓
+                                            Cloudflare Workers
+                                            从 R2 读取 JSON
 ```
 
-**关键模块：**
-- `src/worker_simple.py`: 采集+分析，输出 JSON 文件
-- `src/analyzers/realtime.py`: 实时分析器，调用 Claude API
-- `workers/src/index.ts`: Hono 路由，从 R2 读取数据
-- `workers/src/pages/Home.ts`: 首页渲染
-- `workers/src/services/fund.ts`: ETF 实时行情（东方财富 API）
-
-**采集器（src/collectors/）：**
-- **普通采集器**：CLSNewsCollector、EastMoneyCollector、SinaFinanceCollector
-- **RSS 采集器**：CNBCCollector、BloombergCollector、WSJCollector
-- **Playwright 采集器**（GitHub Actions 使用）：
-  - CLSPlaywrightCollector、SinaPlaywrightCollector、EastMoneyPlaywrightCollector
-  - WallStreetCNCollector（华尔街见闻）、Jin10Collector（金十数据）
+**关键文件：**
+- `src/worker_simple.py` - 采集+分析入口
+- `src/analyzers/realtime.py` - Claude AI 分析
+- `src/collectors/` - 10个新闻采集器
+- `src/services/fund_service.py` - ETF 数据服务
+- `workers/src/index.ts` - Hono 路由
+- `workers/src/pages/Home.ts` - 首页渲染
 
 ## Configuration
 
@@ -55,8 +52,7 @@ worker_simple.py → collectors/ → realtime.py → src/web/data/*.json
 
 Cloudflare R2（数据存储）：
 - Bucket: `invest-data`
-- 公开 URL: `https://pub-bf3ac083583c4798b8f0091067ae106d.r2.dev`
-- GitHub Secrets: `CLOUDFLARE_API_TOKEN`
+- GitHub Secrets: `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`
 
 ## Deployment
 

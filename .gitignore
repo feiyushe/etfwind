@@ -4,15 +4,21 @@
 # Python
 __pycache__/
 *.py[cod]
+*.egg-info/
+.venv/
 venv/
 
 # 数据文件
-data/
-!data/latest.json
-!src/web/data/
+src/data/*.json
 
-# 报告文件
-reports/
+# Node
+node_modules/
+
+# Cloudflare
+.wrangler/
+
+# Playwright
+.playwright-mcp/
 
 # IDE
 .idea/
@@ -20,3 +26,7 @@ reports/
 
 # macOS
 .DS_Store
+
+# 临时文件
+.reports/
+.claude/
