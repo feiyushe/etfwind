@@ -2,7 +2,7 @@
 
 AI 驱动的 ETF 投资风向分析工具。自动采集财经新闻，通过 Claude AI 分析生成板块研判和 ETF 推荐。
 
-**在线访问**: https://etf.aurora-ai.workers.dev/
+**在线访问**: https://etf.aurora-bots.com/
 
 ## 功能
 

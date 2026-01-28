@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ETF风向标 - AI 驱动的 ETF 投资风向分析工具。自动采集财经新闻，通过 Claude AI 分析生成板块研判和 ETF 推荐，部署在 Cloudflare Workers。
 
-**在线访问**: https://etf.aurora-ai.workers.dev/
+**在线访问**: https://etf.aurora-bots.com/
 **GitHub**: https://github.com/lichengzhe/etfwind
 
 ## Commands
@@ -59,7 +59,7 @@ Cloudflare R2（数据存储）：
 - **Web**: Cloudflare Workers（`workers/`）
 - **采集/分析**: GitHub Actions（每 2 小时，含 Playwright）
 - **数据存储**: Cloudflare R2（`invest-data` bucket）
-- **URL**: https://etf.aurora-ai.workers.dev/
+- **URL**: https://etf.aurora-bots.com/
 
 ## Key Data Structures
 

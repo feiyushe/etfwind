@@ -45,11 +45,25 @@ async def run():
     logger.info("开始 AI 分析...")
     result = await analyze(news.items, sector_list=sector_list)
 
+    # 检查分析结果是否有效
+    output_file = DATA_DIR / "latest.json"
+    beijing_tz = timezone(timedelta(hours=8))
+
+    if not result or not result.get("sectors"):
+        logger.warning("AI 分析结果为空，保留历史数据")
+        # 尝试读取历史数据
+        if output_file.exists():
+            try:
+                old_data = json.loads(output_file.read_text())
+                result = old_data.get("result", {})
+                logger.info("已恢复历史分析结果")
+            except Exception as e:
+                logger.error(f"读取历史数据失败: {e}")
+
     # 为每个板块匹配 ETF
     await enrich_sectors_with_etfs(result)
 
     # 保存结果
-    beijing_tz = timezone(timedelta(hours=8))
     output = {
         "result": result,
         "updated_at": datetime.now(beijing_tz).isoformat(),
@@ -57,7 +71,6 @@ async def run():
         "source_stats": source_stats,
     }
 
-    output_file = DATA_DIR / "latest.json"
     output_file.write_text(json.dumps(output, ensure_ascii=False, indent=2))
     logger.info(f"结果已保存到 {output_file}")
 
@@ -107,6 +120,7 @@ async def enrich_sectors_with_etfs(result: dict):
     sector_alias = {
         "新能源车": "锂电池", "新能源": "光伏", "创新药": "医药",
         "贵金属": "黄金", "券商": "证券",
+        "芯片/半导体": "芯片", "半导体": "芯片",
     }
 
     # 收集需要查询的ETF代码
