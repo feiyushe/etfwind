@@ -2,7 +2,6 @@
 
 from pydantic_settings import BaseSettings
 from pydantic import Field
-from typing import Optional
 
 
 class Settings(BaseSettings):
@@ -16,27 +15,6 @@ class Settings(BaseSettings):
     claude_model: str = Field(
         default="claude-opus-4-5", alias="CLAUDE_MODEL"
     )
-
-    # Supabase 配置（简化版不需要）
-    supabase_url: Optional[str] = Field(default=None, alias="SUPABASE_URL")
-    supabase_key: Optional[str] = Field(default=None, alias="SUPABASE_KEY")
-
-    # 企业微信配置
-    wecom_webhook_url: Optional[str] = Field(default=None, alias="WECOM_WEBHOOK_URL")
-
-    # 邮件配置
-    smtp_host: Optional[str] = Field(default=None, alias="SMTP_HOST")
-    smtp_port: int = Field(default=465, alias="SMTP_PORT")
-    smtp_user: Optional[str] = Field(default=None, alias="SMTP_USER")
-    smtp_password: Optional[str] = Field(default=None, alias="SMTP_PASSWORD")
-    email_recipients: Optional[str] = Field(default=None, alias="EMAIL_RECIPIENTS")
-
-    @property
-    def email_recipient_list(self) -> list[str]:
-        """获取邮件收件人列表"""
-        if not self.email_recipients:
-            return []
-        return [e.strip() for e in self.email_recipients.split(",") if e.strip()]
 
     class Config:
         env_file = ".env"

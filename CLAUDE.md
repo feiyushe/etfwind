@@ -129,6 +129,20 @@ Cloudflare R2（数据存储）：
 
 ## Lessons Learned
 
+### Python 命令必须用 uv run
+
+本项目使用 uv 管理 Python 依赖，运行任何 Python 命令都必须加 `uv run` 前缀：
+
+```bash
+# 正确
+uv run python -m src.worker_simple
+uv run python -c "from src.config import settings; print(settings)"
+
+# 错误（会报 ModuleNotFoundError）
+python -m src.worker_simple
+python3 -c "..."
+```
+
 ### Playwright 闭环验证
 
 修改前端代码后，使用 Playwright 自动打开网站验证效果：
