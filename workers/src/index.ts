@@ -15,38 +15,51 @@ const R2_URL = 'https://pub-bf3ac083583c4798b8f0091067ae106d.r2.dev'
 
 // 从 R2 加载数据
 async function loadData(r2: R2Bucket): Promise<LatestData> {
-  const obj = await r2.get('latest.json')
-  if (obj) return await obj.json() as LatestData
+  try {
+    const obj = await r2.get('latest.json')
+    if (obj) return await obj.json() as LatestData
+  } catch (e) {
+    console.error('R2 load failed:', e)
+  }
   // 备用：HTTP 请求
   const resp = await fetch(`${R2_URL}/latest.json`)
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
   return await resp.json() as LatestData
 }
 
 // 从 R2 加载 ETF Master
 async function loadEtfMaster(r2: R2Bucket): Promise<Record<string, any>> {
   let data: any
-  const obj = await r2.get('etf_master.json')
-  if (obj) {
-    data = await obj.json()
-  } else {
-    const resp = await fetch(`${R2_URL}/etf_master.json`)
-    data = await resp.json()
+  try {
+    const obj = await r2.get('etf_master.json')
+    if (obj) {
+      data = await obj.json()
+      return data.etfs || data
+    }
+  } catch (e) {
+    console.error('R2 etf_master load failed:', e)
   }
-  // 处理 { "etfs": { ... } } 结构
+  const resp = await fetch(`${R2_URL}/etf_master.json`)
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+  data = await resp.json()
   return data.etfs || data
 }
 
 // 从 R2 加载新闻
 async function loadNews(r2: R2Bucket): Promise<NewsItem[]> {
   let data: any
-  const obj = await r2.get('news.json')
-  if (obj) {
-    data = await obj.json()
-  } else {
-    const resp = await fetch(`${R2_URL}/news.json`)
-    data = await resp.json()
+  try {
+    const obj = await r2.get('news.json')
+    if (obj) {
+      data = await obj.json()
+      return data.news || data
+    }
+  } catch (e) {
+    console.error('R2 news load failed:', e)
   }
-  // 处理 { "news": [...] } 结构
+  const resp = await fetch(`${R2_URL}/news.json`)
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+  data = await resp.json()
   return data.news || data
 }
 
@@ -91,10 +104,11 @@ app.get('/api/batch-sector-etfs', async (c) => {
   const result: Record<string, any[]> = {}
   const allCodes: string[] = []
 
-  // 找出每个板块的 ETF
+  // 找出每个板块的 ETF（按成交额排序，与服务端渲染一致）
   for (const sector of sectors) {
     const etfs = Object.values(etfMaster)
       .filter((e: any) => e.sector === sector)
+      .sort((a: any, b: any) => (b.amount_yi || 0) - (a.amount_yi || 0))
       .slice(0, 3)
     result[sector] = etfs
     allCodes.push(...etfs.map((e: any) => e.code))

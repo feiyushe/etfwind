@@ -310,9 +310,6 @@ class FundService:
             logger.warning(f"读取 etf_master.json 失败: {e}")
 
         return self._etf_list_cache or {}
-        self._etf_cache_time = now
-        logger.info(f"更新ETF板块映射，共 {len(sector_map)} 个板块")
-        return sector_map
 
     async def build_etf_master(self, min_amount_yi: float = 0.5) -> dict:
         """构建 ETF Master 数据

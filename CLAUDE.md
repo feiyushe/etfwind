@@ -25,7 +25,7 @@ cd workers && npx wrangler dev
 ## Architecture
 
 ```
-GitHub Actions (每30分钟)
+GitHub Actions (每2小时)
         ↓
 worker_simple.py → collectors/ → realtime.py → src/data/*.json
                    (10个采集器)   (Claude API)        ↓
@@ -57,7 +57,7 @@ Cloudflare R2（数据存储）：
 ## Deployment
 
 - **Web**: Cloudflare Workers（`workers/`）
-- **采集/分析**: GitHub Actions（每 30 分钟，含 Playwright）
+- **采集/分析**: GitHub Actions（每 2 小时，含 Playwright）
 - **数据存储**: Cloudflare R2（`invest-data` bucket）
 - **URL**: https://etf.aurora-ai.workers.dev/
 
@@ -72,10 +72,10 @@ Cloudflare R2（数据存储）：
     "sectors": [
       {
         "name": "板块名",
+        "heat": 5,
         "direction": "利好/利空/中性",
-        "reason": "📈 原因",
-        "etf": "芯片ETF(512760)",
-        "events": [{"title": "事件", "suggestion": "💡 建议"}]
+        "analysis": "板块深度分析（80-100字）",
+        "news": ["📰 消息 → 解读"]
       }
     ],
     "risk_level": "低/中/高"
