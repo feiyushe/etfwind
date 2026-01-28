@@ -2,7 +2,7 @@
 export const styles = `
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f5f5; color: #333; line-height: 1.4; font-size: 14px; }
-.container { max-width: 1200px; margin: 0 auto; padding: 12px; }
+.container { max-width: 1600px; margin: 0 auto; padding: 16px 24px; }
 header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: nowrap; overflow-x: auto; }
 header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 .meta { color: #999; font-size: 12px; }
@@ -13,7 +13,7 @@ header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(135de
 .powered-by { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #D97706; text-decoration: none; }
 .powered-by:hover { color: #B45309; }
 .source-stats { display: flex; flex-wrap: nowrap; gap: 4px; flex-shrink: 0; }
-.source-stats a { font-size: 11px; padding: 3px 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; text-decoration: none; color: #6b7280; transition: all 0.15s; }
+.source-stats a { font-size: 11px; padding: 4px 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; text-decoration: none; color: #6b7280; transition: all 0.15s; }
 .source-stats a:hover { background: #f3f4f6; border-color: #d1d5db; color: #374151; }
 .card { background: #fff; border-radius: 10px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
 .card h2 { font-size: 16px; margin-bottom: 6px; color: #1a1a1a; }
