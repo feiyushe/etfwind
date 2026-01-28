@@ -28,6 +28,8 @@ ANALYSIS_PROMPT = """你是A股ETF投资分析师，分析新闻并输出投资�
 ## 新闻（共{count}条）
 {news_list}
 
+{history_context}
+
 ## 可选板块
 {sector_list}
 
@@ -35,13 +37,13 @@ ANALYSIS_PROMPT = """你是A股ETF投资分析师，分析新闻并输出投资�
 ```json
 {{
   "market_view": "🎯 市场状态一句话（20字内）",
-  "narrative": "市场全景分析（200字，主要矛盾、资金流向、情绪、趋势，适当emoji）",
+  "narrative": "市场全景分析（200字，主要矛盾、资金流向、情绪、趋势，结合历史变化，适当emoji）",
   "sectors": [
     {{
       "name": "芯片",
       "heat": 5,
       "direction": "利好",
-      "analysis": "板块深度分析（80-100字，包含：驱动因素、产业链影响、资金态度、短期展望）",
+      "analysis": "板块深度分析（80-100字，包含：驱动因素、产业链影响、资金态度、短期展望，可对比历史热度变化）",
       "news": [
         "🔥 美光涨5%创新高 → 存储芯片涨价周期确认，国产替代加速"
       ]
@@ -56,7 +58,7 @@ ANALYSIS_PROMPT = """你是A股ETF投资分析师，分析新闻并输出投资�
 - name 必须从上面的"可选板块"中选择，确保能匹配到对应ETF
 - heat: 1-5星热度（5=极热，基于新闻数量、事件重要性、市场关注度）
 - direction: 利好/利空/中性
-- analysis: 深度分析，信息量要足，包含逻辑链条
+- analysis: 深度分析，信息量要足，包含逻辑链条，可对比历史趋势
 - news: 1-3条，格式"📰 消息 → 解读"，消息和解读在一行
 - risk_level: 低/中/高
 """
@@ -74,12 +76,13 @@ async def collect_news() -> tuple[list[NewsItem], dict]:
         await agg.close()
 
 
-async def analyze(items: list[NewsItem], sector_list: list[str] = None) -> dict:
+async def analyze(items: list[NewsItem], sector_list: list[str] = None, history_context: str = "") -> dict:
     """AI分析新闻
 
     Args:
         items: 新闻列表
         sector_list: 可选板块列表（从 etf_master.json 读取）
+        history_context: 历史分析上下文（用于趋势对比）
     """
     base_url = settings.claude_base_url.rstrip("/")
     api_key = settings.claude_api_key
@@ -106,6 +109,7 @@ async def analyze(items: list[NewsItem], sector_list: list[str] = None) -> dict:
     prompt = ANALYSIS_PROMPT.format(
         count=len(items),
         news_list=news_list,
+        history_context=history_context,
         sector_list=sector_str
     )
 

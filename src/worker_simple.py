@@ -76,6 +76,49 @@ def cleanup_archives(now: datetime):
         logger.info(f"清理归档 {f.name}（超过1年）")
 
 
+def load_history(days: int = 7) -> list[dict]:
+    """读取近N天的历史归档数据"""
+    beijing_tz = timezone(timedelta(hours=8))
+    now = datetime.now(beijing_tz)
+    history = []
+
+    archive_files = sorted(ARCHIVE_DIR.glob("latest_*.json"), reverse=True)
+    for f in archive_files[:days]:
+        try:
+            data = json.loads(f.read_text())
+            date_str = f.stem.replace("latest_", "")
+            result = data.get("result", {})
+            if result.get("sectors"):
+                history.append({
+                    "date": date_str,
+                    "market_view": result.get("market_view", ""),
+                    "sectors": [
+                        {"name": s["name"], "heat": s["heat"], "direction": s["direction"]}
+                        for s in result.get("sectors", [])
+                    ]
+                })
+        except Exception as e:
+            logger.warning(f"读取归档 {f.name} 失败: {e}")
+
+    return history
+
+
+def format_history_context(history: list[dict]) -> str:
+    """格式化历史数据为 AI 上下文"""
+    if not history:
+        return ""
+
+    lines = ["## 近期历史分析（供参考）"]
+    for h in history[:5]:  # 最多5天
+        sectors_str = ", ".join([
+            f"{s['name']}({'↑' if s['direction']=='利好' else '↓' if s['direction']=='利空' else '-'}{'★'*s['heat']})"
+            for s in h["sectors"][:4]
+        ])
+        lines.append(f"- {h['date']}: {h['market_view']} | {sectors_str}")
+
+    return "\n".join(lines)
+
+
 async def save_news(news_items, beijing_tz):
     """保存新闻列表"""
     aggregator_urls = [
@@ -127,7 +170,13 @@ async def run():
 
     # AI 分析（传入 sector_list 约束）
     logger.info("开始 AI 分析...")
-    result = await analyze(news.items, sector_list=sector_list)
+    # 读取历史数据用于综合分析
+    history = load_history(days=7)
+    history_context = format_history_context(history)
+    if history:
+        logger.info(f"读取到 {len(history)} 天历史数据")
+
+    result = await analyze(news.items, sector_list=sector_list, history_context=history_context)
 
     # 检查分析结果是否有效
     output_file = DATA_DIR / "latest.json"
