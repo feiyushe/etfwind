@@ -244,13 +244,28 @@ export function renderHome(data: LatestData, etfMaster: Record<string, any>): st
     .map(sector => renderSectorCard(sector, etfMaster))
     .join('')
 
+  // 生成动态 SEO 描述
+  const topSectors = sortedSectors.slice(0, 3).map(s => s.name).join('、')
+  const seoDesc = `${result.market_view} 今日热门板块：${topSectors}。AI 实时分析财经新闻，智能推荐 ETF 投资方向。`
+
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="${seoDesc}">
+  <meta name="keywords" content="ETF,基金,投资,AI分析,${topSectors},股票,理财,指数基金">
+  <meta name="author" content="ETF风向标">
+  <meta property="og:title" content="ETF风向标 - AI驱动的ETF投资分析">
+  <meta property="og:description" content="${seoDesc}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://etf.aurora-bots.com/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="ETF风向标">
+  <meta name="twitter:description" content="${seoDesc}">
+  <link rel="canonical" href="https://etf.aurora-bots.com/">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
-  <title>ETF风向标</title>
+  <title>ETF风向标 - AI驱动的ETF投资分析</title>
   <style>${styles}</style>
 </head>
 <body>
@@ -281,7 +296,6 @@ export function renderHome(data: LatestData, etfMaster: Record<string, any>): st
     <div class="sectors-grid">
       ${sectorsHtml}
     </div>
-  </div>
 
   <script>${clientScript}</script>
 </body>

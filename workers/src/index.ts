@@ -291,6 +291,107 @@ app.get('/news', async (c) => {
   return c.html(renderNews(news, source))
 })
 
+// Sitemap.xml
+app.get('/sitemap.xml', (c) => {
+  const today = new Date().toISOString().split('T')[0]
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://etf.aurora-bots.com/</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://etf.aurora-bots.com/news</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://etf.aurora-bots.com/cycle</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+</urlset>`
+  return c.text(xml, 200, { 'Content-Type': 'application/xml' })
+})
+
+// robots.txt
+app.get('/robots.txt', (c) => {
+  const txt = `User-agent: *
+Allow: /
+Sitemap: https://etf.aurora-bots.com/sitemap.xml`
+  return c.text(txt)
+})
+
+// API: 每日海报 SVG
+app.get('/api/poster', async (c) => {
+  const data = await loadData(c.env.R2)
+  const { result, updated_at } = data
+
+  // XML 转义 + 移除 emoji
+  const esc = (s: string) => s
+    .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .trim()
+
+  // 格式化日期
+  const date = new Date(updated_at)
+  const dateStr = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
+
+  // 取前4个板块
+  const sectors = (result.sectors || []).slice(0, 4)
+
+  // 生成板块列表 SVG
+  const sectorsSvg = sectors.map((s: any, i: number) => {
+    const y = 280 + i * 80
+    const dirColor = s.direction === '利好' ? '#dc2626' : s.direction === '利空' ? '#16a34a' : '#6b7280'
+    const stars = '★'.repeat(s.heat)
+    const analysis = esc(s.analysis.slice(0, 35))
+    return `<rect x="40" y="${y}" width="520" height="70" rx="8" fill="#fff" opacity="0.9"/>
+<text x="60" y="${y + 30}" font-size="20" font-weight="bold" fill="#1f2937">${esc(s.name)}</text>
+<text x="60" y="${y + 55}" font-size="14" fill="#6b7280">${analysis}...</text>
+<text x="480" y="${y + 30}" font-size="14" fill="${dirColor}" text-anchor="end">${s.direction}</text>
+<text x="540" y="${y + 30}" font-size="12" fill="#fbbf24" text-anchor="end">${stars}</text>`
+  }).join('\n')
+
+  const marketView = esc(result.market_view)
+  const narrative = result.summary || result.narrative || ''
+  const line1 = esc(narrative.slice(0, 40))
+  const line2 = esc(narrative.slice(40, 80))
+  const line3 = esc(narrative.slice(80, 120))
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" viewBox="0 0 600 800">
+<defs>
+<linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+<stop offset="0%" stop-color="#667eea"/>
+<stop offset="100%" stop-color="#764ba2"/>
+</linearGradient>
+</defs>
+<rect width="600" height="800" fill="url(#bg)"/>
+<text x="300" y="60" font-size="32" font-weight="bold" fill="#fff" text-anchor="middle">ETF风向标</text>
+<text x="300" y="95" font-size="16" fill="#ffffffcc" text-anchor="middle">${dateStr} - AI驱动投资分析</text>
+<rect x="40" y="120" width="520" height="130" rx="12" fill="#fff" opacity="0.95"/>
+<text x="60" y="155" font-size="18" font-weight="bold" fill="#1f2937">${marketView}</text>
+<text x="60" y="185" font-size="13" fill="#6b7280">
+<tspan x="60" dy="0">${line1}</tspan>
+<tspan x="60" dy="20">${line2}</tspan>
+<tspan x="60" dy="20">${line3}...</tspan>
+</text>
+<text x="300" y="265" font-size="16" font-weight="bold" fill="#fff" text-anchor="middle">今日热门板块</text>
+${sectorsSvg}
+<text x="300" y="760" font-size="14" fill="#ffffffb3" text-anchor="middle">etf.aurora-bots.com</text>
+<text x="300" y="780" font-size="12" fill="#ffffff80" text-anchor="middle">数据来源：财联社、东方财富、Bloomberg</text>
+</svg>`
+
+  return c.text(svg, 200, { 'Content-Type': 'image/svg+xml; charset=utf-8' })
+})
+
 // 健康检查
 app.get('/health', (c) => c.json({ status: 'ok' }))
 
