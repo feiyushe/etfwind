@@ -15,6 +15,9 @@ ETF风向标 - AI 驱动的 ETF 投资风向分析工具。自动采集财经新
 # 手动运行采集+分析（输出到 src/data/）
 PYTHONPATH=. uv run python -m src.worker_simple
 
+# 更新 ETF Master（本地运行，需要 CLAUDE_API_KEY）
+CLAUDE_API_KEY=xxx uv run python scripts/update_etf_master.py
+
 # 部署 Workers 前端
 cd workers && npx wrangler deploy
 
@@ -40,6 +43,8 @@ worker_simple.py → collectors/ → realtime.py → src/data/*.json
 - `src/analyzers/realtime.py` - Claude AI 分析
 - `src/collectors/` - 10个新闻采集器
 - `src/services/fund_service.py` - ETF 数据服务
+- `config/etf_master.json` - ETF 主数据（642个ETF，32个板块）
+- `scripts/update_etf_master.py` - ETF Master 更新脚本
 - `workers/src/index.ts` - Hono 路由
 - `workers/src/pages/Home.ts` - 首页渲染
 
@@ -62,6 +67,30 @@ Cloudflare R2（数据存储）：
 - **URL**: https://etf.aurora-bots.com/
 
 ## Key Data Structures
+
+**etf_master.json（ETF 主数据，642个ETF）：**
+```json
+{
+  "etfs": {
+    "518880": {
+      "code": "518880",
+      "name": "黄金ETF",
+      "full_name": "华安易富黄金交易型开放式证券投资基金",
+      "exchange": "上海",
+      "manager": "华安基金",
+      "establish_date": "2013年07月18日",
+      "amount_yi": 108.45,
+      "sector": "黄金",
+      "desc": "投资上海黄金交易所黄金现货合约",
+      "scope": "上海黄金交易所挂盘交易的黄金现货合约...",
+      "risk": "本基金属于黄金ETF..."
+    }
+  },
+  "sectors": {"黄金": ["518880", "159934", ...], ...},
+  "sector_list": ["黄金", "有色", "芯片", ...],
+  "updated_at": "2026-01-29 11:41"
+}
+```
 
 **latest.json（AI 分析结果）：**
 ```json
