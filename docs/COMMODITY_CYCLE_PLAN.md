@@ -177,29 +177,28 @@ COMMODITY_CYCLE_PROMPT = """
 
 ## 任务清单
 
-- [ ] Phase 1: 商品数据 API
-  - [ ] 添加 Yahoo Finance 白银/铜/油/玉米数据源
-  - [ ] 创建 /api/commodity-cycle 端点
-  - [ ] 计算周期阶段逻辑
+- [x] Phase 1: 商品数据 API ✅ 2026-01-29
+  - [x] 添加 Yahoo Finance 白银/铜/油/玉米数据源
+  - [x] 创建 /api/commodity-cycle 端点
+  - [x] 计算周期阶段逻辑
 
-- [ ] Phase 2: 首页周期指示器
-  - [ ] 添加周期进度条 UI
-  - [ ] 客户端 JS 加载数据
-  - [ ] 移动端适配
+- [x] Phase 2: 首页周期指示器 ✅ 2026-01-29
+  - [x] 添加周期进度条 UI
+  - [x] 客户端 JS 加载数据
+  - [x] 移动端适配
 
-- [ ] Phase 3: AI 周期分析
-  - [ ] 扩展 ANALYSIS_PROMPT
-  - [ ] 商品新闻过滤逻辑
-  - [ ] 输出 cycle 字段
+- [x] Phase 3: AI 周期分析 ✅ 2026-01-29
+  - [x] 扩展 ANALYSIS_PROMPT
+  - [x] 输出 cycle 字段
 
-- [ ] Phase 4: 历史数据扩展
-  - [ ] 扩展 FOTH Matrix
-  - [ ] 周期历史加载函数
+- [x] Phase 4: 历史数据扩展 ✅ 2026-01-29
+  - [x] 扩展 FOTH Matrix
+  - [x] 周期历史上下文
 
-- [ ] Phase 5: 独立周期页面
-  - [ ] 创建 /cycle 路由
-  - [ ] 走势叠加图
-  - [ ] ETF 推荐卡片
+- [x] Phase 5: 独立周期页面 ✅ 2026-01-29
+  - [x] 创建 /cycle 路由
+  - [x] 走势叠加图
+  - [x] ETF 推荐卡片
 
 ---
 
