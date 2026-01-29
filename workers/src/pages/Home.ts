@@ -173,20 +173,14 @@ export function renderHome(data: LatestData, etfMaster: Record<string, any>): st
     </header>
 
     <div class="card">
-      <h2>${result.market_view}</h2>
+      <div class="card-header">
+        <h2>${result.market_view}</h2>
+        ${result.opinions?.sentiment ? `<span class="sentiment">${result.opinions.sentiment}</span>` : ''}
+      </div>
       <p>${result.narrative}</p>
       ${result.facts?.length ? `
-      <div class="foth-section">
-        <div class="facts">
-          <strong>今日事件</strong>
-          <ul>${result.facts.map((f: string) => `<li>${f}</li>`).join('')}</ul>
-        </div>
-        ${result.opinions ? `
-        <div class="opinions">
-          <strong>市场情绪</strong>
-          <span class="sentiment">${result.opinions.sentiment || ''}</span>
-        </div>
-        ` : ''}
+      <div class="facts-grid">
+        ${result.facts.map((f: string) => `<div class="fact-item">${f}</div>`).join('')}
       </div>
       ` : ''}
     </div>

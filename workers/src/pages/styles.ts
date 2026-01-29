@@ -17,6 +17,8 @@ header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(135de
 .source-stats a:hover { background: #f3f4f6; border-color: #d1d5db; color: #374151; }
 .card { background: #fff; border-radius: 10px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
 .card h2 { font-size: 16px; margin-bottom: 6px; color: #1a1a1a; }
+.card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.card-header h2 { margin-bottom: 0; }
 .card p { font-size: 13px; color: #555; }
 .sectors-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .sector-card { background: #fff; border-radius: 10px; padding: 10px 12px; border: none; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
@@ -51,14 +53,9 @@ header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(135de
 .etf-table .down { color: #16a34a; }
 .etf-table a { color: #0066cc; text-decoration: none; }
 .etf-table a:hover { text-decoration: underline; }
-.foth-section { display: flex; gap: 16px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb; font-size: 12px; }
-.foth-section .facts { flex: 1; }
-.foth-section .facts strong { color: #374151; display: block; margin-bottom: 4px; }
-.foth-section .facts ul { margin: 0; padding-left: 16px; color: #6b7280; }
-.foth-section .facts li { margin-bottom: 2px; }
-.foth-section .opinions { flex-shrink: 0; text-align: right; }
-.foth-section .opinions strong { color: #374151; display: block; margin-bottom: 4px; }
-.foth-section .sentiment { display: inline-block; padding: 2px 8px; background: #fef3c7; color: #b45309; border-radius: 4px; font-size: 11px; }
+.facts-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb; }
+.fact-item { font-size: 12px; color: #4b5563; padding: 8px 10px; background: #f9fafb; border-radius: 6px; line-height: 1.5; }
+.sentiment { display: inline-block; padding: 2px 10px; background: #fef3c7; color: #b45309; border-radius: 4px; font-size: 12px; font-weight: 500; }
 @media (max-width: 600px) {
   .container { padding: 12px; }
   header { flex-wrap: wrap; gap: 6px; }
@@ -69,8 +66,7 @@ header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(135de
   .sectors-grid { grid-template-columns: 1fr; }
   .card h2 { font-size: 15px; }
   .card p { font-size: 12px; }
-  .foth-section { flex-direction: column; gap: 8px; }
-  .foth-section .opinions { text-align: left; }
+  .facts-grid { grid-template-columns: 1fr; }
   .sector-name { font-size: 15px; }
   .sector-analysis { font-size: 11px; }
   .sector-card { overflow-x: hidden; }
