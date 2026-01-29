@@ -118,6 +118,30 @@ function renderEtfs(table, etfs) {
   }
 }
 
+async function loadCommodityCycle() {
+  try {
+    const resp = await fetch('/api/commodity-cycle');
+    const data = await resp.json();
+    const el = document.getElementById('commodity-cycle');
+    if (!el || !data.cycle) return;
+
+    const order = ['gold', 'silver', 'copper', 'oil', 'corn'];
+    const names = { gold: '黄金', silver: '白银', copper: '铜', oil: '石油', corn: '农产品' };
+    const icons = { gold: '🥇', silver: '🥈', copper: '🔶', oil: '🛢️', corn: '🌽' };
+
+    const stages = order.map((k, i) => {
+      const c = data.commodities[k];
+      const isLeader = k === data.cycle.leader;
+      const chg = c ? c.change_5d.toFixed(1) : '--';
+      const cls = isLeader ? 'active' : '';
+      return '<span class="cycle-stage ' + cls + '">' + icons[k] + ' ' + names[k] + ' <small>' + (c ? (c.change_5d >= 0 ? '+' : '') + chg + '%' : '') + '</small></span>';
+    }).join('<span class="cycle-arrow">→</span>');
+
+    el.innerHTML = '<div class="cycle-bar">' + stages + '</div><div class="cycle-hint">当前：' + data.cycle.stage_name + ' | 下一站：' + names[data.cycle.next] + '</div>';
+  } catch (e) { console.warn('周期数据加载失败', e); }
+}
+
+loadCommodityCycle();
 loadSectorEtfs();
 `
 
@@ -237,6 +261,8 @@ export function renderHome(data: LatestData, etfMaster: Record<string, any>): st
     </header>
 
     <div id="global-indices" class="global-indices"></div>
+
+    <div id="commodity-cycle" class="cycle-card"></div>
 
     <div class="card">
       <div class="card-header">

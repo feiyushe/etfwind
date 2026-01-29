@@ -206,6 +206,75 @@ app.get('/api/global-indices', async (c) => {
   return c.json(indices)
 })
 
+// API: 商品周期轮动（黄金→白银→铜→石油→农产品）
+app.get('/api/commodity-cycle', async (c) => {
+  const commodities: Record<string, any> = {}
+
+  // Yahoo Finance 获取商品数据
+  const yahooSymbols: Record<string, { symbol: string; name: string }> = {
+    gold: { symbol: 'GC=F', name: '黄金' },
+    silver: { symbol: 'SI=F', name: '白银' },
+    copper: { symbol: 'HG=F', name: '铜' },
+    oil: { symbol: 'CL=F', name: '原油' },
+    corn: { symbol: 'ZC=F', name: '玉米' },
+  }
+
+  // 并发获取所有商品数据
+  const fetches = Object.entries(yahooSymbols).map(async ([key, { symbol, name }]) => {
+    try {
+      const resp = await fetch(
+        `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=6mo`,
+        { headers: { 'User-Agent': 'Mozilla/5.0' } }
+      )
+      const data = await resp.json() as any
+      const closes = data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []
+      const prices = closes.filter((c: any) => c != null)
+      if (prices.length >= 20) {
+        const price = prices[prices.length - 1]
+        const price5d = prices[prices.length - 6] || prices[0]
+        const price20d = prices[prices.length - 21] || prices[0]
+        commodities[key] = {
+          name,
+          price,
+          kline: prices,
+          change_5d: ((price - price5d) / price5d * 100),
+          change_20d: ((price - price20d) / price20d * 100),
+        }
+      }
+    } catch (e) {
+      console.error(`Yahoo ${name} API错误:`, e)
+    }
+  })
+  await Promise.all(fetches)
+
+  // 计算周期阶段
+  const order = ['gold', 'silver', 'copper', 'oil', 'corn']
+  const stageNames = ['黄金领涨期', '白银跟涨期', '铜价上涨期', '油价上涨期', '农产品补涨期']
+
+  // 计算动量得分 (5日涨幅权重2 + 20日涨幅权重1)
+  const momentum = order
+    .filter(k => commodities[k])
+    .map(k => ({
+      key: k,
+      score: (commodities[k].change_5d || 0) * 2 + (commodities[k].change_20d || 0)
+    }))
+    .sort((a, b) => b.score - a.score)
+
+  const leader = momentum[0]?.key || 'gold'
+  const stage = order.indexOf(leader) + 1
+
+  return c.json({
+    commodities,
+    cycle: {
+      stage,
+      leader,
+      stage_name: stageNames[stage - 1] || '未知',
+      next: order[(stage) % 5],
+      momentum: momentum.map(m => ({ ...m, name: commodities[m.key]?.name }))
+    }
+  })
+})
+
 // 新闻页
 app.get('/news', async (c) => {
   const source = c.req.query('source')
