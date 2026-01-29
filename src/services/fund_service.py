@@ -333,8 +333,14 @@ class FundService:
             etf_file = Path(__file__).parent.parent / "data" / "etf_master.json"
             if etf_file.exists():
                 old_data = json.loads(etf_file.read_text())
-                for code, info in old_data.get("etfs", {}).items():
-                    history_amounts[code] = info.get("amount_yi", 0) * 1e8
+                old_etfs = old_data.get("etfs", {})
+                # 只有历史数据足够多时才使用（避免残缺数据污染）
+                if len(old_etfs) >= 50:
+                    for code, info in old_etfs.items():
+                        history_amounts[code] = info.get("amount_yi", 0) * 1e8
+                    logger.info(f"使用历史成交额数据（{len(history_amounts)}个ETF）")
+                else:
+                    logger.info(f"历史数据不足（{len(old_etfs)}个），使用当日成交额")
         except Exception:
             pass
 
