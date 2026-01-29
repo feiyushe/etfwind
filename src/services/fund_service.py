@@ -277,30 +277,35 @@ class FundService:
             return {}
 
     async def get_sector_etf_map(self) -> dict[str, list[tuple[str, str]]]:
-        """读取板块->ETF映射（优先使用固定列表）"""
+        """读取板块->ETF映射（从 etf_master.json）"""
         now = time.time()
         if self._etf_list_cache and now - self._etf_cache_time < self._etf_cache_ttl:
             return self._etf_list_cache
 
         from pathlib import Path
 
-        # 优先使用固定的 etf_sectors.json
-        sectors_file = Path(__file__).parent.parent.parent / "config" / "etf_sectors.json"
-        if sectors_file.exists():
+        # 读取 etf_master.json
+        master_file = Path(__file__).parent.parent.parent / "config" / "etf_master.json"
+        if master_file.exists():
             try:
-                data = json.loads(sectors_file.read_text())
+                data = json.loads(master_file.read_text())
+                etfs = data.get("etfs", {})
+                sectors = data.get("sectors", {})
+
                 sector_map: dict[str, list] = {}
-                for sector, etfs in data.items():
-                    if sector.startswith("_"):  # 跳过 _meta
-                        continue
-                    sector_map[sector] = [(e["code"], e["name"]) for e in etfs]
+                for sector, codes in sectors.items():
+                    sector_map[sector] = [
+                        (code, etfs[code]["name"])
+                        for code in codes[:5]  # 每板块最多5个
+                        if code in etfs
+                    ]
 
                 self._etf_list_cache = sector_map
                 self._etf_cache_time = now
-                logger.info(f"从固定列表加载ETF映射，共 {len(sector_map)} 个板块")
+                logger.info(f"从 etf_master.json 加载，共 {len(sector_map)} 个板块")
                 return sector_map
             except Exception as e:
-                logger.warning(f"读取 etf_sectors.json 失败: {e}")
+                logger.warning(f"读取 etf_master.json 失败: {e}")
 
         return self._etf_list_cache or {}
 

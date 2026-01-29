@@ -175,19 +175,19 @@ async def run():
     finally:
         await agg.close()
 
-    # 读取 sector_list（从固定的 etf_sectors.json）
+    # 读取 sector_list（从 etf_master.json）
     logger.info("=== 第2步: 读取板块配置 ===")
     sector_list = None
-    sectors_file = Path(__file__).parent.parent / "config" / "etf_sectors.json"
-    if sectors_file.exists():
+    master_file = Path(__file__).parent.parent / "config" / "etf_master.json"
+    if master_file.exists():
         try:
-            sectors_data = json.loads(sectors_file.read_text())
-            sector_list = [k for k in sectors_data.keys() if not k.startswith("_")]
+            master_data = json.loads(master_file.read_text())
+            sector_list = master_data.get("sector_list", [])
             logger.info(f"✅ 读取到 {len(sector_list)} 个可选板块")
         except Exception as e:
-            logger.warning(f"⚠️ 读取 etf_sectors.json 失败: {e}")
+            logger.warning(f"⚠️ 读取 etf_master.json 失败: {e}")
     else:
-        logger.warning("⚠️ etf_sectors.json 不存在，使用默认板块")
+        logger.warning("⚠️ etf_master.json 不存在，使用默认板块")
 
     # 读取历史数据用于综合分析
     history = load_history(days=7)

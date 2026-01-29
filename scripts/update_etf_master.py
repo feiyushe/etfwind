@@ -1,53 +1,29 @@
-"""更新 ETF Master 数据
+"""更新 ETF Master 数据（完整版）
 
 用法：
-    python scripts/update_etf_master.py
+    CLAUDE_API_KEY=xxx uv run python scripts/update_etf_master.py
 
 功能：
     1. 从新浪获取全量 ETF 列表
-    2. 按成交额筛选活跃 ETF
-    3. 自动分类到板块
-    4. 保存到 config/etf_sectors.json
+    2. 爬取东方财富获取详细信息（管理人、投资范围等）
+    3. AI 批量分类到板块 + 精炼描述
+    4. 保存到 config/etf_master.json
 """
 
+import asyncio
 import json
+import os
 import re
 from pathlib import Path
-import httpx
+from datetime import datetime
 
-# 板块关键词映射
-SECTOR_KEYWORDS = {
-    "黄金": ["黄金", "金ETF", "上海金"],
-    "有色": ["有色", "金属ETF", "稀土", "铜", "铝", "锌"],
-    "芯片": ["芯片", "半导体", "集成电路", "半导设备"],
-    "证券": ["证券", "券商", "非银"],
-    "银行": ["银行"],
-    "医药": ["医疗", "医药", "生物", "创新药"],
-    "白酒": ["酒ETF", "白酒"],
-    "消费": ["消费", "食品"],
-    "军工": ["军工", "国防", "卫星", "航天", "航空"],
-    "新能源": ["新能源", "光伏", "风电", "清洁能源"],
-    "锂电池": ["锂电", "电池", "储能"],
-    "汽车": ["汽车", "智能车", "新能车"],
-    "房地产": ["房地产", "地产"],
-    "煤炭": ["煤炭"],
-    "钢铁": ["钢铁"],
-    "石油": ["石油", "油气"],
-    "化工": ["化工"],
-    "电力": ["电力", "电网", "电气"],
-    "农业": ["农业", "养殖", "畜牧"],
-    "家电": ["家电"],
-    "机器人": ["机器人"],
-    "人工智能": ["人工智能", "AI"],
-    "软件": ["软件", "云计算", "计算机"],
-    "通信": ["通信", "5G"],
-    "互联网": ["互联网"],
-    "游戏": ["游戏", "动漫"],
-    "传媒": ["传媒", "影视"],
-    "环保": ["环保", "碳中和"],
-    "恒生科技": ["恒生科技"],
-    "港股": ["港股", "香港", "恒生互联", "恒生医疗", "恒生生物"],
-}
+import httpx
+from loguru import logger
+
+# 配置
+CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY", "")
+CLAUDE_BASE_URL = os.getenv("CLAUDE_BASE_URL", "https://api.anthropic.com")
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514")
 
 # 排除关键词
 EXCLUDE_KEYWORDS = [
@@ -58,22 +34,23 @@ EXCLUDE_KEYWORDS = [
     "沙特", "巴西", "越南", "印度",
     "恒生指数", "国企", "央企",
     "保证金", "自由现金", "期货", "豆粕", "能源化工",
-    "上证", "深证", "中小板",
 ]
 
 
-def fetch_all_etfs() -> list[dict]:
+def should_exclude(name: str) -> bool:
+    return any(kw in name for kw in EXCLUDE_KEYWORDS)
+
+
+async def fetch_all_etfs() -> list[dict]:
     """从新浪获取全量 ETF"""
     all_etfs = []
-    with httpx.Client(timeout=30) as client:
-        for page in range(1, 10):
-            resp = client.get(
+    async with httpx.AsyncClient(timeout=30) as client:
+        for page in range(1, 15):
+            resp = await client.get(
                 "https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeData",
                 params={
-                    "page": page,
-                    "num": 100,
-                    "sort": "amount",
-                    "asc": 0,
+                    "page": page, "num": 100,
+                    "sort": "amount", "asc": 0,
                     "node": "etf_hq_fund",
                 },
                 headers={"Referer": "https://finance.sina.com.cn"},
@@ -89,93 +66,214 @@ def fetch_all_etfs() -> list[dict]:
                 })
             if len(data) < 100:
                 break
-    print(f"获取到 {len(all_etfs)} 个 ETF")
+    logger.info(f"获取到 {len(all_etfs)} 个 ETF")
     return all_etfs
 
 
-def should_exclude(name: str) -> bool:
-    """检查是否应排除"""
-    return any(kw in name for kw in EXCLUDE_KEYWORDS)
+async def fetch_etf_detail(client: httpx.AsyncClient, code: str) -> dict:
+    """从东方财富爬取 ETF 详细信息"""
+    try:
+        url = f"https://fundf10.eastmoney.com/jbgk_{code}.html"
+        resp = await client.get(url, timeout=10)
+        text = resp.text
+
+        info = {"code": code}
+        # 交易所
+        info["exchange"] = "上海" if code.startswith("5") else "深圳"
+
+        # 基金全称
+        m = re.search(r'基金全称</th><td[^>]*>([^<]+)', text)
+        if m:
+            info["full_name"] = m.group(1).strip()
+
+        # 基金简称
+        m = re.search(r'基金简称</th><td[^>]*>([^<]+)', text)
+        if m:
+            info["short_name"] = m.group(1).strip()
+
+        # 基金管理人
+        m = re.search(r'基金管理人</th><td[^>]*><a[^>]*>([^<]+)', text)
+        if m:
+            info["manager"] = m.group(1).strip()
+
+        # 成立日期
+        m = re.search(r'成立日期/规模</th><td[^>]*>(\d{4}年\d{2}月\d{2}日)', text)
+        if m:
+            info["establish_date"] = m.group(1).strip()
+
+        # 投资范围
+        m = re.search(r'投资范围</label>.*?<p>\s*(.+?)\s*</p>', text, re.DOTALL)
+        if m:
+            info["scope"] = m.group(1).strip()[:500]  # 限制长度
+
+        # 风险收益特征
+        m = re.search(r'风险收益特征</label>.*?<p>\s*(.+?)\s*</p>', text, re.DOTALL)
+        if m:
+            info["risk"] = m.group(1).strip()[:300]
+
+        return info
+    except Exception as e:
+        logger.warning(f"获取 {code} 详情失败: {e}")
+        return {"code": code}
 
 
-def classify_etf(name: str) -> str | None:
-    """根据名称分类到板块"""
-    for sector, keywords in SECTOR_KEYWORDS.items():
-        for kw in keywords:
-            if kw in name:
-                return sector
-    return None
+async def ai_classify_batch(client: httpx.AsyncClient, etf_infos: list[dict]) -> dict:
+    """AI 批量分类 ETF 到板块"""
+    if not etf_infos or not CLAUDE_API_KEY:
+        return {}
+
+    etf_list = "\n".join([
+        f"- {info['code']} {info.get('short_name','')}: {info.get('scope','')[:150]}"
+        for info in etf_infos
+    ])
+
+    prompt = f"""对以下ETF进行行业板块分类。
+
+## ETF列表
+{etf_list}
+
+## 分类规则
+1. 分类到A股行业板块：黄金、有色、芯片、半导体、人工智能、医药、证券、银行、军工、光伏、新能源、锂电池、白酒、消费、农业、煤炭、钢铁、石油、化工、电力、机器人、通信、游戏、传媒、房地产、家电、环保、汽车、软件、互联网、恒生科技、港股
+2. 无法分类的标记为"其他"
+
+## 输出JSON
+```json
+{{
+  "ETF代码": {{"sector": "板块", "desc": "一句话描述(20字内)"}},
+  ...
+}}
+```"""
+
+    try:
+        resp = await client.post(
+            f"{CLAUDE_BASE_URL.rstrip('/')}/v1/messages",
+            headers={
+                "Content-Type": "application/json",
+                "x-api-key": CLAUDE_API_KEY,
+                "anthropic-version": "2023-06-01",
+            },
+            json={
+                "model": CLAUDE_MODEL,
+                "max_tokens": 4096,
+                "messages": [{"role": "user", "content": prompt}]
+            },
+            timeout=120,
+        )
+        resp.raise_for_status()
+        text = resp.json()["content"][0]["text"].strip()
+        if "```json" in text:
+            text = text.split("```json")[1].split("```")[0]
+        elif "```" in text:
+            text = text.split("```")[1].split("```")[0]
+        return json.loads(text)
+    except Exception as e:
+        logger.warning(f"AI分类失败: {e}")
+        return {}
 
 
-def build_sector_map(etfs: list[dict], min_amount: float = 5e6) -> dict:
-    """构建板块映射"""
+async def main():
+    """主函数"""
+    if not CLAUDE_API_KEY:
+        logger.error("请设置 CLAUDE_API_KEY 环境变量")
+        return
+
+    # Step 1: 获取全量 ETF
+    logger.info("=== Step 1: 获取 ETF 列表 ===")
+    all_etfs = await fetch_all_etfs()
+
+    # 筛选活跃 ETF
+    active_etfs = [
+        e for e in all_etfs
+        if e["amount"] > 5e6 and not should_exclude(e["name"])
+    ]
+    logger.info(f"筛选后: {len(active_etfs)} 个活跃行业ETF")
+
+    # Step 2: 爬取详细信息
+    logger.info("=== Step 2: 获取 ETF 详情 ===")
+    details = []
+    async with httpx.AsyncClient(timeout=30) as client:
+        sem = asyncio.Semaphore(5)
+
+        async def fetch_with_sem(etf):
+            async with sem:
+                detail = await fetch_etf_detail(client, etf["code"])
+                detail["name"] = etf["name"]
+                detail["amount_yi"] = round(etf["amount"] / 1e8, 2)
+                return detail
+
+        tasks = [fetch_with_sem(e) for e in active_etfs]
+        details = await asyncio.gather(*tasks)
+        details = [d for d in details if d.get("code")]
+    logger.info(f"获取到 {len(details)} 个 ETF 详情")
+
+    # Step 3: AI 批量分类
+    logger.info("=== Step 3: AI 分类 ===")
+    all_classifications = {}
+    async with httpx.AsyncClient(timeout=120) as client:
+        for i in range(0, len(details), 30):
+            batch = details[i:i+30]
+            logger.info(f"处理 {i+1}-{i+len(batch)}/{len(details)}...")
+            result = await ai_classify_batch(client, batch)
+            all_classifications.update(result)
+            await asyncio.sleep(1)  # 避免限流
+
+    # Step 4: 构建最终数据
+    logger.info("=== Step 4: 构建数据 ===")
+    etf_master = {}
     sector_map = {}
 
-    for etf in etfs:
-        name = etf["name"]
-        code = etf["code"]
-        amount = etf["amount"]
+    for detail in details:
+        code = detail["code"]
+        classify = all_classifications.get(code, {})
+        sector = classify.get("sector", "其他")
+        desc = classify.get("desc", "")
 
-        # 排除宽基/债券等
-        if should_exclude(name):
-            continue
-
-        # 成交额过滤
-        if amount < min_amount:
-            continue
-
-        # 分类
-        sector = classify_etf(name)
-        if not sector:
-            continue
-
-        if sector not in sector_map:
-            sector_map[sector] = []
-
-        sector_map[sector].append({
+        etf_master[code] = {
             "code": code,
-            "name": name,
-            "amount_yi": round(amount / 1e8, 2),
-        })
+            "name": detail.get("name", ""),
+            "full_name": detail.get("full_name", ""),
+            "exchange": detail.get("exchange", ""),
+            "manager": detail.get("manager", ""),
+            "establish_date": detail.get("establish_date", ""),
+            "amount_yi": detail.get("amount_yi", 0),
+            "sector": sector,
+            "desc": desc,
+            "scope": detail.get("scope", "")[:200],
+            "risk": detail.get("risk", "")[:100],
+        }
 
-    # 每个板块按成交额排序，保留前5个
+        # 构建板块索引
+        if sector != "其他":
+            if sector not in sector_map:
+                sector_map[sector] = []
+            sector_map[sector].append(code)
+
+    # 每个板块按成交额排序
     for sector in sector_map:
-        sector_map[sector].sort(key=lambda x: x["amount_yi"], reverse=True)
-        sector_map[sector] = sector_map[sector][:5]
-        # 移除 amount_yi 字段
-        for etf in sector_map[sector]:
-            del etf["amount_yi"]
+        sector_map[sector].sort(
+            key=lambda c: etf_master[c]["amount_yi"],
+            reverse=True
+        )
 
-    return sector_map
-
-
-def main():
-    # 获取 ETF 列表
-    etfs = fetch_all_etfs()
-
-    # 构建板块映射
-    sector_map = build_sector_map(etfs, min_amount=5e6)
-
-    # 添加元数据
-    from datetime import datetime
-    sector_map["_meta"] = {
-        "updated_at": datetime.now().strftime("%Y-%m-%d"),
-        "note": "运行 python scripts/update_etf_master.py 更新",
+    # 保存结果
+    output = {
+        "etfs": etf_master,
+        "sectors": sector_map,
+        "sector_list": sorted(sector_map.keys()),
+        "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
 
-    # 统计
-    total_etfs = sum(len(v) for k, v in sector_map.items() if not k.startswith("_"))
-    print(f"\n共 {len(sector_map) - 1} 个板块，{total_etfs} 个 ETF")
-    for sector, etfs in sorted(sector_map.items()):
-        if sector.startswith("_"):
-            continue
-        print(f"  {sector}: {len(etfs)} 个")
+    output_file = Path(__file__).parent.parent / "config" / "etf_master.json"
+    output_file.write_text(json.dumps(output, ensure_ascii=False, indent=2))
 
-    # 保存
-    output_file = Path(__file__).parent.parent / "config" / "etf_sectors.json"
-    output_file.write_text(json.dumps(sector_map, ensure_ascii=False, indent=2))
-    print(f"\n已保存到 {output_file}")
+    # 统计
+    logger.info(f"\n=== 完成 ===")
+    logger.info(f"共 {len(etf_master)} 个 ETF，{len(sector_map)} 个板块")
+    for sector in sorted(sector_map.keys()):
+        codes = sector_map[sector]
+        logger.info(f"  {sector}: {len(codes)} 个")
+    logger.info(f"\n已保存到 {output_file}")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
