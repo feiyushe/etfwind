@@ -154,6 +154,7 @@ Cloudflare R2（数据存储）：
 - `GET /api/funds?codes=518880,512760` - ETF 实时行情
 - `GET /api/batch-sector-etfs?sectors=黄金,芯片` - 批量板块 ETF
 - `GET /api/etf-master` - ETF 主数据
+- `GET /api/global-indices` - 全球指标（美元、黄金、BTC、上证、纳指）含90天K线
 - `GET /health` - 健康检查
 
 ## Tech Stack
@@ -291,6 +292,11 @@ Latest        │  今日事件        │  今日情绪
    - 架构足够好时，个体智能不需要太高
    - 最小化使用 AI（简单任务）
    - 最积极使用 AI（复杂决策、创意生成）
+
+5. **愿景**
+   - 一公司的人打电脑，忽然某天电脑就自己跑起来，人就可以站起来走了
+   - 从简单的例子开始变强变复杂
+   - AI 能去焦虑
 
 ## 技术亮点
 

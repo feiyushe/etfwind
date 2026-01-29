@@ -149,6 +149,63 @@ app.get('/api/etf-master', async (c) => {
   return c.json(etfMaster)
 })
 
+// API: 全球指标（含90天K线）
+app.get('/api/global-indices', async (c) => {
+  const indices: Record<string, any> = {}
+
+  // 东方财富K线：黄金、上证、美元
+  const emCodes: Record<string, { secid: string; name: string }> = {
+    usdcny: { secid: '133.USDCNH', name: '美元' },
+    gold: { secid: '101.GC00Y', name: '黄金' },
+    sh: { secid: '1.000001', name: '上证' },
+  }
+
+  try {
+    const fetches = Object.entries(emCodes).map(async ([key, { secid, name }]) => {
+      const resp = await fetch(
+        `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secid}&fields1=f1,f2,f3&fields2=f51,f52&klt=101&fqt=1&end=20500101&lmt=90`
+      )
+      const data = await resp.json() as any
+      const klines = data?.data?.klines || []
+      const prices = klines.map((k: string) => parseFloat(k.split(',')[1]))
+      if (prices.length) {
+        indices[key] = { name, price: prices[prices.length - 1], kline: prices }
+      }
+    })
+    await Promise.all(fetches)
+  } catch (e) { console.error('东方财富K线API错误:', e) }
+
+  // Yahoo Finance：比特币90天K线
+  try {
+    const btcResp = await fetch(
+      'https://query1.finance.yahoo.com/v8/finance/chart/BTC-USD?interval=1d&range=3mo',
+      { headers: { 'User-Agent': 'Mozilla/5.0' } }
+    )
+    const btcData = await btcResp.json() as any
+    const closes = btcData?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []
+    const prices = closes.filter((c: any) => c != null)
+    if (prices.length) {
+      indices['btc'] = { name: 'BTC', price: prices[prices.length - 1], kline: prices }
+    }
+  } catch (e) { console.error('Yahoo BTC API错误:', e) }
+
+  // Yahoo Finance：纳斯达克90天K线
+  try {
+    const nasdaqResp = await fetch(
+      'https://query1.finance.yahoo.com/v8/finance/chart/%5EIXIC?interval=1d&range=3mo',
+      { headers: { 'User-Agent': 'Mozilla/5.0' } }
+    )
+    const nasdaqData = await nasdaqResp.json() as any
+    const closes = nasdaqData?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []
+    const prices = closes.filter((c: any) => c != null)
+    if (prices.length) {
+      indices['nasdaq'] = { name: '纳指', price: prices[prices.length - 1], kline: prices }
+    }
+  } catch (e) { console.error('Yahoo Finance API错误:', e) }
+
+  return c.json(indices)
+})
+
 // 新闻页
 app.get('/news', async (c) => {
   const source = c.req.query('source')

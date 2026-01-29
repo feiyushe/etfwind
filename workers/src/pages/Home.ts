@@ -24,16 +24,63 @@ function dirClass(dir: string): string {
 
 // 客户端 JS
 const clientScript = `
-function sparkline(vals, w=40, h=14) {
-  if (!vals || vals.length < 2) return '';
-  const min = Math.min(...vals), max = Math.max(...vals);
-  const range = max - min || 1;
-  const pts = vals.map((v, i) => \`\${i * w / (vals.length - 1)},\${h - (v - min) / range * h}\`).join(' ');
-  const color = vals[vals.length-1] >= vals[0] ? '#dc2626' : '#16a34a';
-  return \`<svg class="sparkline" width="\${w}" height="\${h}"><polyline points="\${pts}" fill="none" stroke="\${color}" stroke-width="1.2"/></svg>\`;
+let isHoliday = false;
+
+async function loadGlobalIndices() {
+  try {
+    const resp = await fetch('/api/global-indices');
+    const data = await resp.json();
+    const el = document.getElementById('global-indices');
+    if (!el) return;
+    const order = ['usdcny', 'gold', 'btc', 'sh', 'nasdaq'];
+    const symbols = { usdcny: '$', gold: '🥇', btc: '₿', sh: '📈', nasdaq: '📊' };
+    const html = order.map(k => {
+      const d = data[k];
+      if (!d || !d.kline?.length) return '';
+      const priceStr = d.price >= 10000 ? (d.price/1000).toFixed(1)+'k' : d.price >= 100 ? d.price.toFixed(0) : d.price.toFixed(2);
+      const kline = d.kline;
+      const min = Math.min(...kline), max = Math.max(...kline);
+      const range = max - min || 1;
+      const pts = kline.map((v,i) => (i*80/(kline.length-1))+','+(20-(v-min)/range*20)).join(' ');
+      const color = kline[kline.length-1] >= kline[0] ? '#dc2626' : '#16a34a';
+      const sym = symbols[k] || '';
+      return '<span class="idx">'+sym+' <b>'+d.name+'</b> '+priceStr+' <svg width="80" height="20"><polyline points="'+pts+'" fill="none" stroke="'+color+'" stroke-width="2"/></svg></span>';
+    }).join('');
+    el.innerHTML = html;
+  } catch (e) { console.warn('全球指标加载失败', e); }
+}
+
+async function checkHoliday() {
+  try {
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '-');
+    const resp = await fetch('https://timor.tech/api/holiday/info/' + today);
+    const data = await resp.json();
+    isHoliday = data.type?.type !== 0; // type=0是工作日
+  } catch (e) { console.warn('节假日API失败', e); }
+}
+
+function getMarketStatus() {
+  const now = new Date();
+  const h = now.getHours(), m = now.getMinutes(), d = now.getDay();
+  const t = h * 60 + m;
+  if (d === 0 || d === 6 || isHoliday) return { status: '休市', cls: 'closed' };
+  if (t < 9 * 60 + 30) return { status: '盘前', cls: 'pre' };
+  if ((t >= 9 * 60 + 30 && t < 11 * 60 + 30) || (t >= 13 * 60 && t < 15 * 60)) return { status: '盘中', cls: 'trading' };
+  return { status: '收盘', cls: 'closed' };
+}
+
+function updatePriceHeader() {
+  const { status, cls } = getMarketStatus();
+  document.querySelectorAll('.price-header').forEach(el => {
+    el.textContent = status;
+    el.className = 'price-header ' + cls;
+  });
 }
 
 async function loadSectorEtfs() {
+  await checkHoliday();
+  updatePriceHeader();
+  loadGlobalIndices();
   const tables = document.querySelectorAll('.etf-table');
   const sectors = Array.from(tables).map(t => t.dataset.sector);
   if (!sectors.length) return;
@@ -50,23 +97,39 @@ async function loadSectorEtfs() {
 
 function renderEtfs(table, etfs) {
   if (!etfs.length) return;
-  const cls = v => v >= 0 ? 'up' : 'down';
-  const fmt = v => Math.abs(v).toFixed(1) + '%';
-  const fmtPrice = v => v == null ? '--' : v.toFixed(2);
-  // 只更新实时数据列
+  const chgCls = v => {
+    const abs = Math.abs(v);
+    const dir = v >= 0 ? 'up' : 'down';
+    if (abs >= 5) return dir + '-5';
+    if (abs >= 3) return dir + '-3';
+    if (abs >= 1) return dir + '-1';
+    return dir;
+  };
+  const fmt = v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+  const fmtPrice = v => v == null ? '--' : v.toFixed(3);
   for (const f of etfs) {
     const row = table.querySelector(\`tr[data-code="\${f.code}"]\`);
     if (!row) continue;
     row.querySelector('.price').textContent = fmtPrice(f.price);
     const changeCell = row.querySelector('.change');
     changeCell.textContent = fmt(f.change_pct);
-    changeCell.className = 'change ' + cls(f.change_pct);
+    changeCell.className = 'change ' + chgCls(f.change_pct);
     row.querySelector('.amount').textContent = f.amount_yi.toFixed(1) + '亿';
   }
 }
 
 loadSectorEtfs();
 `
+
+// 涨跌幅样式类
+function chgClass(v: number): string {
+  const abs = Math.abs(v)
+  const dir = v >= 0 ? 'up' : 'down'
+  if (abs >= 5) return dir + '-5'
+  if (abs >= 3) return dir + '-3'
+  if (abs >= 1) return dir + '-1'
+  return dir
+}
 
 // 板块别名映射（AI输出 -> ETF板块）
 const sectorAlias: Record<string, string> = {
@@ -83,15 +146,16 @@ function renderSectorCard(sector: any, etfMaster: Record<string, any>): string {
     .sort((a: any, b: any) => (b.amount_yi || 0) - (a.amount_yi || 0))
     .slice(0, 3) as any[]
 
-  let tbodyHtml = '<tr><td colspan="6">暂无数据</td></tr>'
+  let tbodyHtml = '<tr><td colspan="7">暂无数据</td></tr>'
   if (sectorEtfs.length) {
     tbodyHtml = sectorEtfs.map((f: any) => `
       <tr data-code="${f.code}">
         <td><a href="https://quote.eastmoney.com/${f.code.startsWith('15') || f.code.startsWith('16') ? 'sz' : 'sh'}${f.code}.html" target="_blank">${f.name}(${f.code})</a></td>
         <td class="price">--</td>
-        <td class="change">--</td>
         <td class="amount">--</td>
-        <td class="${f.change_20d >= 0 ? 'up' : 'down'}">${Math.abs(f.change_20d).toFixed(1)}%</td>
+        <td class="change">--</td>
+        <td class="${chgClass(f.change_5d || 0)}">${f.change_5d >= 0 ? '+' : ''}${(f.change_5d || 0).toFixed(1)}%</td>
+        <td class="${chgClass(f.change_20d || 0)}">${f.change_20d >= 0 ? '+' : ''}${(f.change_20d || 0).toFixed(1)}%</td>
         <td>${f.kline?.length ? `<svg class="sparkline" viewBox="0 0 100 16" preserveAspectRatio="none"><polyline points="${f.kline.map((v: number, i: number) => `${i * 100 / (f.kline.length - 1)},${16 - (v - Math.min(...f.kline)) / (Math.max(...f.kline) - Math.min(...f.kline) || 1) * 16}`).join(' ')}" fill="none" stroke="${f.kline[f.kline.length-1] >= f.kline[0] ? '#dc2626' : '#16a34a'}" stroke-width="1.2"/></svg>` : '-'}</td>
       </tr>
     `).join('')
@@ -101,8 +165,7 @@ function renderSectorCard(sector: any, etfMaster: Record<string, any>): string {
     <table class="etf-table" data-sector="${sector.name}">
       <thead>
         <tr>
-          <th>ETF推荐</th><th>价格</th>
-          <th>日涨跌</th><th>日成交</th><th>20日涨跌</th><th>20日走势</th>
+          <th>ETF</th><th class="price-header">价格</th><th>成交</th><th>日</th><th>5日</th><th>20日</th><th>90日</th>
         </tr>
       </thead>
       <tbody>${tbodyHtml}</tbody>
@@ -172,17 +235,14 @@ export function renderHome(data: LatestData, etfMaster: Record<string, any>): st
       </span>
     </header>
 
+    <div id="global-indices" class="global-indices"></div>
+
     <div class="card">
       <div class="card-header">
         <h2>${result.market_view}</h2>
-        ${result.opinions?.sentiment ? `<span class="sentiment">${result.opinions.sentiment}</span>` : ''}
+        ${result.sentiment ? `<span class="sentiment">${result.sentiment}</span>` : ''}
       </div>
-      <p>${result.narrative}</p>
-      ${result.facts?.length ? `
-      <div class="facts-grid">
-        ${result.facts.map((f: string) => `<div class="fact-item">${f}</div>`).join('')}
-      </div>
-      ` : ''}
+      <p class="summary">${result.summary || result.narrative || ''}</p>
     </div>
 
     <div class="sectors-grid">
