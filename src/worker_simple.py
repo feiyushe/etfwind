@@ -35,16 +35,15 @@ def archive_data(beijing_tz):
             # 读取并添加摘要
             data = json.loads(latest_file.read_text())
             result = data.get("result", {})
-            # 生成精简摘要
-            data["summary"] = {
+            # 分离 facts 和 opinion
+            data["facts"] = result.get("key_events", [])[:5]
+            data["opinion"] = {
                 "market_view": result.get("market_view", ""),
                 "sectors": [
                     {
                         "name": s["name"],
                         "heat": s["heat"],
                         "direction": s["direction"],
-                        "brief": s.get("analysis", "")[:50],
-                        "news": (s.get("news", [""])[0])[:40],
                     }
                     for s in result.get("sectors", [])[:4]
                 ]
@@ -100,46 +99,46 @@ def cleanup_archives(now: datetime):
 
 
 def load_history(days: int = 7) -> list[dict]:
-    """读取近N天的历史归档数据"""
+    """读取近N天的历史归档数据（facts + opinion 分离）"""
     logger.info(f"=== 读取历史数据 (最近{days}天) ===")
-    beijing_tz = timezone(timedelta(hours=8))
-    now = datetime.now(beijing_tz)
     history = []
 
     archive_files = sorted(ARCHIVE_DIR.glob("latest_*.json"), reverse=True)
     logger.info(f"📁 找到 {len(archive_files)} 个归档文件")
+
     for f in archive_files[:days]:
         try:
             data = json.loads(f.read_text())
             date_str = f.stem.replace("latest_", "")
-            # 优先读取预存的 summary，否则从 result 提取
-            summary = data.get("summary")
-            if summary and summary.get("sectors"):
+            result = data.get("result", {})
+
+            # 新格式：facts + opinion
+            facts = data.get("facts", [])
+            opinion = data.get("opinion", {})
+
+            if facts or opinion.get("sectors"):
                 history.append({
                     "date": date_str,
-                    "market_view": summary.get("market_view", ""),
-                    "sectors": summary["sectors"]
+                    "facts": facts,
+                    "opinion": opinion,
                 })
-                logger.info(f"  ✅ {date_str}: {len(summary['sectors'])} 个板块 (summary)")
+                logger.info(f"  ✅ {date_str}: {len(facts)} 事件, {len(opinion.get('sectors', []))} 板块")
+            # 兼容旧格式
             elif result.get("sectors"):
-                # 兼容旧归档（无 summary）
                 history.append({
                     "date": date_str,
-                    "market_view": result.get("market_view", ""),
-                    "sectors": [
-                        {
-                            "name": s["name"],
-                            "heat": s["heat"],
-                            "direction": s["direction"],
-                            "brief": s.get("analysis", "")[:50],
-                            "news": (s.get("news", [""])[0])[:40],
-                        }
-                        for s in result.get("sectors", [])[:4]
-                    ]
+                    "facts": result.get("key_events", []),
+                    "opinion": {
+                        "market_view": result.get("market_view", ""),
+                        "sectors": [
+                            {"name": s["name"], "heat": s["heat"], "direction": s["direction"]}
+                            for s in result.get("sectors", [])[:4]
+                        ]
+                    },
                 })
-                logger.info(f"  ✅ {date_str}: {len(result['sectors'])} 个板块 (result)")
+                logger.info(f"  ✅ {date_str}: 从 result 提取")
             else:
-                logger.info(f"  ⏭️ {date_str}: 无板块数据")
+                logger.info(f"  ⏭️ {date_str}: 无数据")
         except Exception as e:
             logger.warning(f"  ❌ 读取 {f.name} 失败: {e}")
 
@@ -150,20 +149,33 @@ def load_history(days: int = 7) -> list[dict]:
 def format_history_context(history: list[dict]) -> str:
     """格式化历史数据为 AI 上下文
 
-    按时间顺序展示，让 AI 自己判断趋势延续性
+    Facts 优先：先展示客观事件，再展示当时的判断
     """
     if not history:
         return ""
 
-    lines = ["## 近期历史（判断趋势是否延续）"]
+    lines = ["## 近期历史"]
 
     for h in history[:3]:  # 最多3天
-        lines.append(f"\n**{h['date']}** {h['market_view']}")
-        for s in h["sectors"][:3]:
-            arrow = "↑" if s["direction"] == "利好" else "↓" if s["direction"] == "利空" else "-"
-            stars = "★" * s["heat"]
-            brief = s.get("brief", "")
-            lines.append(f"- {s['name']} {arrow}{stars}: {brief}")
+        opinion = h.get("opinion", {})
+        market_view = opinion.get("market_view", "")
+        lines.append(f"\n**{h['date']}** {market_view}")
+
+        # Facts: 客观事件
+        facts = h.get("facts", [])
+        if facts:
+            lines.append("事件:")
+            for fact in facts[:3]:
+                lines.append(f"  - {fact}")
+
+        # Opinion: 当时的板块判断（简化）
+        sectors = opinion.get("sectors", [])
+        if sectors:
+            sector_str = ", ".join(
+                f"{s['name']}{'↑' if s['direction']=='利好' else '↓' if s['direction']=='利空' else '-'}"
+                for s in sectors[:4]
+            )
+            lines.append(f"热点: {sector_str}")
 
     return "\n".join(lines)
 
