@@ -34,6 +34,7 @@ jobs:
         run: |
           mkdir -p src/data/archive
           aws s3 sync s3://invest-data/archive/ src/data/archive/ || true
+          aws s3 cp s3://invest-data/latest.json src/data/latest.json || true
 
       - name: Run collection and analysis
         env:
