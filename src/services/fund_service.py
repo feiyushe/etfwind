@@ -326,7 +326,24 @@ class FundService:
         if not etfs:
             return {"etfs": {}, "sectors": {}, "sector_list": []}
 
+        # 读取历史成交额（用于非交易时间筛选）
+        history_amounts = {}
+        try:
+            from pathlib import Path
+            etf_file = Path(__file__).parent.parent / "data" / "etf_master.json"
+            if etf_file.exists():
+                old_data = json.loads(etf_file.read_text())
+                for code, info in old_data.get("etfs", {}).items():
+                    history_amounts[code] = info.get("amount_yi", 0) * 1e8
+        except Exception:
+            pass
+
         # Step 2: 按成交额排序，筛选活跃 ETF，排除宽基/债券
+        # 优先用当日成交额，无数据时用历史成交额
+        for e in etfs:
+            if e["amount"] == 0 and e["code"] in history_amounts:
+                e["amount"] = history_amounts[e["code"]]
+
         etfs.sort(key=lambda x: x["amount"], reverse=True)
         min_amount = min_amount_yi * 1e8
         active_etfs = [
