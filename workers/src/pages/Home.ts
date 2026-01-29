@@ -203,10 +203,10 @@ export function renderHome(data: LatestData, etfMaster: Record<string, any>): st
         <div class="opinions">
           <strong>市场情绪</strong>
           <span class="sentiment">${result.opinions.sentiment || ''}</span>
-          <img src="/api/wordcloud" alt="词云" class="wordcloud-img" onerror="this.style.display='none'">
         </div>
         ` : ''}
       </div>
+      <img src="/api/wordcloud" alt="词云" class="wordcloud-img" onerror="this.style.display='none'">
       ` : ''}
     </div>
 

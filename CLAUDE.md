@@ -12,11 +12,14 @@ ETF风向标 - AI 驱动的 ETF 投资风向分析工具。自动采集财经新
 ## Commands
 
 ```bash
-# 手动运行采集+分析（输出到 src/data/）
-PYTHONPATH=. uv run python -m src.worker_simple
+# 只运行采集（输出 news_raw.json）
+PYTHONPATH=. uv run python -m src.collect_news
 
-# 更新 ETF Master（本地运行，需要 CLAUDE_API_KEY）
-CLAUDE_API_KEY=xxx uv run python scripts/update_etf_master.py
+# 只运行分析（读取 news_raw.json，输出 latest.json）
+PYTHONPATH=. uv run python -m src.analyze_news
+
+# 采集+分析一起跑（旧方式，仍可用）
+PYTHONPATH=. uv run python -m src.worker_simple
 
 # 部署 Workers 前端
 cd workers && npx wrangler deploy
@@ -28,18 +31,21 @@ cd workers && npx wrangler dev
 ## Architecture
 
 ```
-GitHub Actions (每2小时)
-        ↓
-worker_simple.py → collectors/ → realtime.py → src/data/*.json
-                   (10个采集器)   (Claude API)        ↓
-                                              上传到 R2
-                                                   ↓
-                                            Cloudflare Workers
-                                            从 R2 读取 JSON
+GitHub Actions
+├── Collect News (每小时) → news_raw.json → R2
+│   └── 含 Playwright，耗时 ~1.5分钟
+│
+└── Analyze News (采集后自动触发 / 手动)
+    └── 读取 news_raw.json → AI分析 → latest.json → R2
+    └── 无需 Playwright，耗时 ~1分钟
+
+Cloudflare Workers ← 从 R2 读取 JSON 渲染页面
 ```
 
 **关键文件：**
-- `src/worker_simple.py` - 采集+分析入口
+- `src/collect_news.py` - 新闻采集模块
+- `src/analyze_news.py` - AI 分析模块
+- `src/worker_simple.py` - 共享逻辑（归档、历史、ETF匹配）
 - `src/analyzers/realtime.py` - Claude AI 分析
 - `src/collectors/` - 10个新闻采集器
 - `src/services/fund_service.py` - ETF 数据服务
@@ -92,12 +98,18 @@ Cloudflare R2（数据存储）：
 }
 ```
 
-**latest.json（AI 分析结果）：**
+**latest.json（AI 分析结果，含 FOTH）：**
 ```json
 {
   "result": {
     "market_view": "🎯 市场状态一句话",
     "narrative": "市场全景分析（150字）",
+    "facts": ["黄金突破2800美元", "美联储维持利率不变"],
+    "opinions": {
+      "sentiment": "偏乐观",
+      "hot_words": ["避险", "看涨", "突破"],
+      "media_bias": "多数媒体看多黄金"
+    },
     "sectors": [
       {
         "name": "板块名",

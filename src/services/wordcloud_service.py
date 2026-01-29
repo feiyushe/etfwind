@@ -26,8 +26,8 @@ def find_font() -> str | None:
 
 def generate_wordcloud(
     words: list[dict],
-    width: int = 400,
-    height: int = 200,
+    width: int = 800,
+    height: int = 400,
     background: str = "#ffffff",
 ) -> bytes | None:
     """生成词云图片
@@ -60,10 +60,11 @@ def generate_wordcloud(
             height=height,
             background_color=background,
             color_func=_color_func,
-            prefer_horizontal=0.9,
-            min_font_size=12,
-            max_font_size=60,
-            relative_scaling=0.5,
+            prefer_horizontal=0.8,
+            min_font_size=20,
+            max_font_size=120,
+            relative_scaling=0.6,
+            margin=10,
         )
         wc.generate_from_frequencies(freq)
 
@@ -91,14 +92,12 @@ def _color_func(word, font_size, position, orientation, **kwargs):
         "#ea580c",  # 橙
         "#d97706",  # 琥珀
         "#ca8a04",  # 黄
-        "#65a30d",  # 绿
     ]
-    # 根据字号选择颜色（大字用红色）
-    if font_size > 40:
+    if font_size > 80:
         return colors[0]
-    elif font_size > 30:
+    elif font_size > 50:
         return colors[1]
-    elif font_size > 20:
+    elif font_size > 30:
         return colors[2]
     else:
         return colors[3]

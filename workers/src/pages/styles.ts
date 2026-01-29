@@ -59,7 +59,7 @@ header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(135de
 .foth-section .opinions { flex-shrink: 0; text-align: right; }
 .foth-section .opinions strong { color: #374151; display: block; margin-bottom: 4px; }
 .foth-section .sentiment { display: inline-block; padding: 2px 8px; background: #fef3c7; color: #b45309; border-radius: 4px; font-size: 11px; }
-.wordcloud-img { display: block; margin-top: 8px; max-width: 200px; height: auto; border-radius: 6px; }
+.wordcloud-img { display: block; margin: 12px auto 0; max-width: 100%; height: auto; border-radius: 8px; }
 .word-cloud { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; margin-top: 6px; max-width: 200px; margin-left: auto; }
 .word-cloud .word { display: inline-block; padding: 2px 6px; border-radius: 4px; white-space: nowrap; transition: transform 0.15s; }
 .word-cloud .word:hover { transform: scale(1.1); }
