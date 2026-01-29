@@ -4,14 +4,24 @@ export interface Sector {
   heat: number
   direction: '利好' | '利空' | '中性'
   analysis: string
-  news: string[]
+  catalyst?: string
+  news?: string[]
   etfs?: EtfData[]
 }
 
-// 分析结果
+// 市场情绪
+export interface Opinions {
+  sentiment?: string
+  hot_words?: string[]
+  media_bias?: string
+}
+
+// 分析结果（FOTH Matrix）
 export interface AnalysisResult {
   market_view: string
   narrative: string
+  facts?: string[]
+  opinions?: Opinions
   sectors: Sector[]
   risk_level: string
 }

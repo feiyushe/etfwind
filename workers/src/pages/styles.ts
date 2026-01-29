@@ -51,6 +51,15 @@ header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(135de
 .etf-table .down { color: #16a34a; }
 .etf-table a { color: #0066cc; text-decoration: none; }
 .etf-table a:hover { text-decoration: underline; }
+.foth-section { display: flex; gap: 16px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb; font-size: 12px; }
+.foth-section .facts { flex: 1; }
+.foth-section .facts strong { color: #374151; display: block; margin-bottom: 4px; }
+.foth-section .facts ul { margin: 0; padding-left: 16px; color: #6b7280; }
+.foth-section .facts li { margin-bottom: 2px; }
+.foth-section .opinions { flex-shrink: 0; text-align: right; }
+.foth-section .opinions strong { color: #374151; display: block; margin-bottom: 4px; }
+.foth-section .sentiment { display: inline-block; padding: 2px 8px; background: #fef3c7; color: #b45309; border-radius: 4px; font-size: 11px; }
+.foth-section .hot-words { display: block; margin-top: 4px; color: #9ca3af; font-size: 11px; }
 @media (max-width: 600px) {
   .container { padding: 12px; }
   header { flex-wrap: wrap; gap: 6px; }
@@ -61,6 +70,8 @@ header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(135de
   .sectors-grid { grid-template-columns: 1fr; }
   .card h2 { font-size: 15px; }
   .card p { font-size: 12px; }
+  .foth-section { flex-direction: column; gap: 8px; }
+  .foth-section .opinions { text-align: left; }
   .sector-name { font-size: 15px; }
   .sector-analysis { font-size: 11px; }
   .sector-card { overflow-x: hidden; }
