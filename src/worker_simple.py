@@ -346,7 +346,7 @@ async def fetch_etf_map(force: bool = False):
     logger.info("生成 ETF Master 数据...")
     try:
         fund_service._etf_cache_time = 0
-        master = await fund_service.build_etf_master(min_amount_yi=5.0)
+        master = await fund_service.build_etf_master(min_amount_yi=1.0)
 
         if not master.get("etfs"):
             logger.warning("未获取到ETF数据")
@@ -354,7 +354,7 @@ async def fetch_etf_map(force: bool = False):
 
         # 检查数据完整性，太少则不保存（非交易时间成交额为0会导致筛选结果过少）
         etf_count = len(master.get("etfs", {}))
-        if etf_count < 80:
+        if etf_count < 40:
             logger.warning(f"⚠️ ETF数量过少({etf_count})，可能是非交易时间，跳过保存")
             return
 
