@@ -35,18 +35,15 @@ def archive_data(beijing_tz):
             # 读取并添加摘要
             data = json.loads(latest_file.read_text())
             result = data.get("result", {})
-            # 分离 facts 和 opinion
-            data["facts"] = result.get("key_events", [])[:5]
-            data["opinion"] = {
-                "market_view": result.get("market_view", ""),
+            # FOTH Matrix 归档
+            data["foth"] = {
+                "facts": result.get("facts", [])[:5],
+                "opinions": result.get("opinions", {}),
                 "sectors": [
-                    {
-                        "name": s["name"],
-                        "heat": s["heat"],
-                        "direction": s["direction"],
-                    }
+                    {"name": s["name"], "heat": s["heat"], "direction": s["direction"]}
                     for s in result.get("sectors", [])[:4]
-                ]
+                ],
+                "market_view": result.get("market_view", ""),
             }
             daily_file.write_text(json.dumps(data, ensure_ascii=False, indent=2))
             logger.info(f"✅ 归档成功: {daily_file.name}")
@@ -99,7 +96,7 @@ def cleanup_archives(now: datetime):
 
 
 def load_history(days: int = 7) -> list[dict]:
-    """读取近N天的历史归档数据（facts + opinion 分离）"""
+    """读取近N天的历史归档数据（FOTH Matrix）"""
     logger.info(f"=== 读取历史数据 (最近{days}天) ===")
     history = []
 
@@ -112,29 +109,25 @@ def load_history(days: int = 7) -> list[dict]:
             date_str = f.stem.replace("latest_", "")
             result = data.get("result", {})
 
-            # 新格式：facts + opinion
-            facts = data.get("facts", [])
-            opinion = data.get("opinion", {})
+            # 新格式：FOTH
+            foth = data.get("foth", {})
+            if foth:
+                history.append({"date": date_str, **foth})
+                facts_count = len(foth.get("facts", []))
+                logger.info(f"  ✅ {date_str}: {facts_count} facts (foth)")
+                continue
 
-            if facts or opinion.get("sectors"):
-                history.append({
-                    "date": date_str,
-                    "facts": facts,
-                    "opinion": opinion,
-                })
-                logger.info(f"  ✅ {date_str}: {len(facts)} 事件, {len(opinion.get('sectors', []))} 板块")
             # 兼容旧格式
-            elif result.get("sectors"):
+            if result.get("sectors"):
                 history.append({
                     "date": date_str,
-                    "facts": result.get("key_events", []),
-                    "opinion": {
-                        "market_view": result.get("market_view", ""),
-                        "sectors": [
-                            {"name": s["name"], "heat": s["heat"], "direction": s["direction"]}
-                            for s in result.get("sectors", [])[:4]
-                        ]
-                    },
+                    "facts": result.get("facts", result.get("key_events", [])),
+                    "opinions": result.get("opinions", {}),
+                    "sectors": [
+                        {"name": s["name"], "heat": s["heat"], "direction": s["direction"]}
+                        for s in result.get("sectors", [])[:4]
+                    ],
+                    "market_view": result.get("market_view", ""),
                 })
                 logger.info(f"  ✅ {date_str}: 从 result 提取")
             else:
@@ -147,35 +140,43 @@ def load_history(days: int = 7) -> list[dict]:
 
 
 def format_history_context(history: list[dict]) -> str:
-    """格式化历史数据为 AI 上下文
+    """格式化历史数据为 AI 上下文（FOTH Matrix）
 
-    Facts 优先：先展示客观事件，再展示当时的判断
+    分离展示 Facts 和 Opinions，让 AI 独立判断
     """
     if not history:
         return ""
 
-    lines = ["## 近期历史"]
+    lines = ["## 历史数据（FOTH Matrix）"]
 
-    for h in history[:3]:  # 最多3天
-        opinion = h.get("opinion", {})
-        market_view = opinion.get("market_view", "")
-        lines.append(f"\n**{h['date']}** {market_view}")
-
-        # Facts: 客观事件
+    # History Facts
+    lines.append("\n### History Facts（客观事件）")
+    for h in history[:3]:
         facts = h.get("facts", [])
         if facts:
-            lines.append("事件:")
-            for fact in facts[:3]:
-                lines.append(f"  - {fact}")
+            lines.append(f"**{h['date']}**: {'; '.join(facts[:3])}")
 
-        # Opinion: 当时的板块判断（简化）
-        sectors = opinion.get("sectors", [])
-        if sectors:
+    # History Opinions
+    lines.append("\n### History Opinions（市场情绪）")
+    for h in history[:3]:
+        opinions = h.get("opinions", {})
+        sectors = h.get("sectors", [])
+        if opinions or sectors:
+            sentiment = opinions.get("sentiment", "")
+            hot_words = opinions.get("hot_words", [])
             sector_str = ", ".join(
-                f"{s['name']}{'↑' if s['direction']=='利好' else '↓' if s['direction']=='利空' else '-'}"
-                for s in sectors[:4]
+                f"{s['name']}{'↑' if s['direction']=='利好' else '↓'}"
+                for s in sectors[:3]
             )
-            lines.append(f"热点: {sector_str}")
+            parts = []
+            if sentiment:
+                parts.append(sentiment)
+            if hot_words:
+                parts.append(f"热词:{','.join(hot_words[:3])}")
+            if sector_str:
+                parts.append(f"热点:{sector_str}")
+            if parts:
+                lines.append(f"**{h['date']}**: {' | '.join(parts)}")
 
     return "\n".join(lines)
 
