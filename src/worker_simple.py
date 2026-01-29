@@ -175,6 +175,12 @@ async def run():
     finally:
         await agg.close()
 
+    # 新闻数量检查
+    MIN_NEWS_COUNT = 20
+    if len(news.items) < MIN_NEWS_COUNT:
+        logger.warning(f"⚠️ 新闻数量不足 ({len(news.items)} < {MIN_NEWS_COUNT})，跳过分析")
+        return None
+
     # 读取 sector_list（从 etf_master.json）
     logger.info("=== 第2步: 读取板块配置 ===")
     sector_list = None

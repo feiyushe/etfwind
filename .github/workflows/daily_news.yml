@@ -2,7 +2,9 @@ name: Daily Investment News
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    # 交易日 8:00-18:00 (UTC+8) 每小时运行
+    # UTC 时间: 0:00-10:00
+    - cron: '0 0-10 * * 1-5'
   workflow_dispatch:
 
 permissions:
@@ -20,8 +22,20 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
+
       - name: Install dependencies
         run: pip install .
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pyproject.toml') }}
 
       - name: Install Playwright browsers
         run: python -m playwright install chromium --with-deps
