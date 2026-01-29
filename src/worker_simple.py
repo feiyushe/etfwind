@@ -27,13 +27,29 @@ def archive_data(beijing_tz):
     now = datetime.now(beijing_tz)
     today = now.strftime("%Y-%m-%d")
 
-    # 归档 latest.json 到当天
+    # 归档 latest.json 到当天（含精简摘要）
     latest_file = DATA_DIR / "latest.json"
     if latest_file.exists():
         daily_file = ARCHIVE_DIR / f"latest_{today}.json"
         if not daily_file.exists():
-            import shutil
-            shutil.copy(latest_file, daily_file)
+            # 读取并添加摘要
+            data = json.loads(latest_file.read_text())
+            result = data.get("result", {})
+            # 生成精简摘要
+            data["summary"] = {
+                "market_view": result.get("market_view", ""),
+                "sectors": [
+                    {
+                        "name": s["name"],
+                        "heat": s["heat"],
+                        "direction": s["direction"],
+                        "brief": s.get("analysis", "")[:50],
+                        "news": (s.get("news", [""])[0])[:40],
+                    }
+                    for s in result.get("sectors", [])[:4]
+                ]
+            }
+            daily_file.write_text(json.dumps(data, ensure_ascii=False, indent=2))
             logger.info(f"✅ 归档成功: {daily_file.name}")
         else:
             logger.info(f"⏭️ 今日已归档: {daily_file.name}")
@@ -96,17 +112,32 @@ def load_history(days: int = 7) -> list[dict]:
         try:
             data = json.loads(f.read_text())
             date_str = f.stem.replace("latest_", "")
-            result = data.get("result", {})
-            if result.get("sectors"):
+            # 优先读取预存的 summary，否则从 result 提取
+            summary = data.get("summary")
+            if summary and summary.get("sectors"):
+                history.append({
+                    "date": date_str,
+                    "market_view": summary.get("market_view", ""),
+                    "sectors": summary["sectors"]
+                })
+                logger.info(f"  ✅ {date_str}: {len(summary['sectors'])} 个板块 (summary)")
+            elif result.get("sectors"):
+                # 兼容旧归档（无 summary）
                 history.append({
                     "date": date_str,
                     "market_view": result.get("market_view", ""),
                     "sectors": [
-                        {"name": s["name"], "heat": s["heat"], "direction": s["direction"]}
-                        for s in result.get("sectors", [])
+                        {
+                            "name": s["name"],
+                            "heat": s["heat"],
+                            "direction": s["direction"],
+                            "brief": s.get("analysis", "")[:50],
+                            "news": (s.get("news", [""])[0])[:40],
+                        }
+                        for s in result.get("sectors", [])[:4]
                     ]
                 })
-                logger.info(f"  ✅ {date_str}: {len(result['sectors'])} 个板块")
+                logger.info(f"  ✅ {date_str}: {len(result['sectors'])} 个板块 (result)")
             else:
                 logger.info(f"  ⏭️ {date_str}: 无板块数据")
         except Exception as e:
@@ -122,12 +153,18 @@ def format_history_context(history: list[dict]) -> str:
         return ""
 
     lines = ["## 近期历史分析（供参考）"]
-    for h in history[:5]:  # 最多5天
-        sectors_str = ", ".join([
-            f"{s['name']}({'↑' if s['direction']=='利好' else '↓' if s['direction']=='利空' else '-'}{'★'*s['heat']})"
-            for s in h["sectors"][:4]
-        ])
-        lines.append(f"- {h['date']}: {h['market_view']} | {sectors_str}")
+    for h in history[:3]:  # 最多3天，控制token
+        lines.append(f"\n### {h['date']} {h['market_view']}")
+        for s in h["sectors"][:3]:  # 每天最多3个板块
+            arrow = "↑" if s["direction"] == "利好" else "↓" if s["direction"] == "利空" else "-"
+            brief = s.get("brief", "")
+            news = s.get("news", "")
+            line = f"- {s['name']}({arrow}{'★'*s['heat']})"
+            if brief:
+                line += f": {brief}"
+            if news:
+                line += f" [{news}]"
+            lines.append(line)
 
     return "\n".join(lines)
 
