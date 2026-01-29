@@ -326,7 +326,7 @@ class FundService:
         if not etfs:
             return {"etfs": {}, "sectors": {}, "sector_list": []}
 
-        # 读取历史成交额（用于非交易时间筛选）
+        # 读取历史成交额（更稳定，不受交易时间影响）
         history_amounts = {}
         try:
             from pathlib import Path
@@ -339,9 +339,9 @@ class FundService:
             pass
 
         # Step 2: 按成交额排序，筛选活跃 ETF，排除宽基/债券
-        # 优先用当日成交额，无数据时用历史成交额
+        # 优先用历史成交额（稳定），无历史数据时用当日成交额
         for e in etfs:
-            if e["amount"] == 0 and e["code"] in history_amounts:
+            if e["code"] in history_amounts:
                 e["amount"] = history_amounts[e["code"]]
 
         etfs.sort(key=lambda x: x["amount"], reverse=True)
