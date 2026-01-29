@@ -102,7 +102,7 @@ async def run():
         if isinstance(hot_words[0], str):
             hot_words = [{"word": w, "weight": 5 - i} for i, w in enumerate(hot_words[:5])]
 
-        img_data = generate_wordcloud(hot_words, width=400, height=200)
+        img_data = generate_wordcloud(hot_words)
         if img_data:
             wordcloud_file = DATA_DIR / "wordcloud.png"
             wordcloud_file.write_bytes(img_data)
