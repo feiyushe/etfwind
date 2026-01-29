@@ -58,7 +58,7 @@ def cleanup_archives(now: datetime):
         except ValueError:
             continue
 
-        days_ago = (now - file_date).days
+        days_ago = (now.replace(tzinfo=None) - file_date).days
 
         # 7天内：全部保留
         if days_ago <= 7:
