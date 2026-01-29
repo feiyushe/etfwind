@@ -253,41 +253,104 @@ async def run():
     return output
 
 
+async def ai_map_to_master_sectors(
+    ai_sectors: list[str], master_sectors: list[str]
+) -> dict[str, list[str]]:
+    """AI 将分析出的板块映射到 master 中的标准板块（可一对多）"""
+    import httpx
+    from src.config import settings
+
+    prompt = f"""将左边的板块名映射到右边最相关的标准板块。
+
+## 待映射板块
+{', '.join(ai_sectors)}
+
+## 标准板块列表
+{', '.join(master_sectors)}
+
+## 输出JSON
+```json
+{{
+  "待映射板块": ["标准板块1", "标准板块2"],
+  ...
+}}
+```
+
+要求：
+- 每个板块可映射1-3个相关标准板块
+- 如"新能源车"可映射到["锂电池", "汽车"]
+- 如"科技"可映射到["芯片", "软件", "人工智能"]
+- 无法映射则返回空数组[]"""
+
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(
+                f"{settings.claude_base_url.rstrip('/')}/v1/messages",
+                headers={
+                    "Content-Type": "application/json",
+                    "x-api-key": settings.claude_api_key,
+                    "anthropic-version": "2023-06-01",
+                },
+                json={
+                    "model": settings.claude_model,
+                    "max_tokens": 1024,
+                    "messages": [{"role": "user", "content": prompt}]
+                },
+            )
+            resp.raise_for_status()
+            text = resp.json()["content"][0]["text"].strip()
+            if "```json" in text:
+                text = text.split("```json")[1].split("```")[0]
+            elif "```" in text:
+                text = text.split("```")[1].split("```")[0]
+            return json.loads(text)
+    except Exception as e:
+        logger.warning(f"AI板块映射失败: {e}")
+        return {}
+
+
 async def enrich_sectors_with_etfs(result: dict):
-    """为每个板块匹配交易量最大的3个ETF"""
+    """为每个板块匹配ETF（AI映射板块 + 按成交量取Top3）"""
     sectors = result.get("sectors", [])
     if not sectors:
         logger.warning("⚠️ 无板块数据，跳过ETF匹配")
         return
 
-    # 获取板块->ETF映射
-    sector_map = await fund_service.get_sector_etf_map()
-    if not sector_map:
-        logger.warning("⚠️ 无法获取板块映射")
+    # 读取 ETF 主数据
+    master_file = Path(__file__).parent.parent / "config" / "etf_master.json"
+    if not master_file.exists():
+        logger.warning("⚠️ etf_master.json 不存在")
         return
-    logger.info(f"📊 板块映射: {len(sector_map)} 个板块")
+    etf_master = json.loads(master_file.read_text())
+    master_sectors = etf_master.get("sector_list", [])
+    sector_index = etf_master.get("sectors", {})
+    etfs_data = etf_master.get("etfs", {})
+    logger.info(f"📊 ETF主数据: {len(etfs_data)} 个ETF, {len(master_sectors)} 个板块")
 
-    # 板块名映射（AI输出 -> ETF板块）
-    sector_alias = {
-        "新能源车": "锂电池", "新能源": "光伏", "创新药": "医药",
-        "贵金属": "黄金", "券商": "证券",
-        "芯片/半导体": "芯片", "半导体": "芯片",
-    }
+    # AI 将分析板块映射到 master 标准板块
+    ai_sector_names = [s["name"] for s in sectors]
+    logger.info(f"🤖 AI 映射板块: {ai_sector_names}")
+    sector_mapping = await ai_map_to_master_sectors(ai_sector_names, master_sectors)
 
-    # 收集需要查询的ETF代码
+    if not sector_mapping:
+        logger.warning("⚠️ AI映射失败，使用直接匹配")
+        sector_mapping = {name: [name] if name in sector_index else [] for name in ai_sector_names}
+
+    # 根据映射收集 ETF 代码（合并多个板块）
+    sector_etf_codes: dict[str, list[str]] = {}
+    for ai_name, master_names in sector_mapping.items():
+        codes = []
+        for m_name in master_names:
+            if m_name in sector_index:
+                codes.extend(sector_index[m_name])
+        sector_etf_codes[ai_name] = codes
+        if master_names:
+            logger.info(f"  {ai_name} → {master_names}")
+
+    # 收集所有需要查询的 ETF 代码
     codes_to_fetch = set()
-    sector_etf_mapping = {}
-
-    for sector in sectors:
-        sector_name = sector.get("name", "")
-        # 先尝试别名映射
-        lookup_name = sector_alias.get(sector_name, sector_name)
-        for key, etfs in sector_map.items():
-            if key in lookup_name or lookup_name in key:
-                codes = [code for code, name in etfs[:3]]
-                sector_etf_mapping[sector_name] = codes
-                codes_to_fetch.update(codes)
-                break
+    for codes in sector_etf_codes.values():
+        codes_to_fetch.update(codes)
 
     if not codes_to_fetch:
         logger.warning("⚠️ 没有匹配到ETF代码")
@@ -301,7 +364,7 @@ async def enrich_sectors_with_etfs(result: dict):
     matched = 0
     for sector in sectors:
         sector_name = sector.get("name", "")
-        codes = sector_etf_mapping.get(sector_name, [])
+        codes = sector_etf_codes.get(sector_name, [])
         etfs = []
         for code in codes:
             if code in fund_data:
