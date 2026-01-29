@@ -192,6 +192,8 @@ async def run():
     # 读取历史数据用于综合分析
     history = load_history(days=7)
     history_context = format_history_context(history)
+    if history_context:
+        logger.info(f"📜 历史上下文:\n{history_context}")
 
     # AI 分析
     logger.info("=== 第3步: AI 分析 ===")
