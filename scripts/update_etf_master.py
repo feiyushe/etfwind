@@ -127,7 +127,7 @@ async def ai_classify_batch(client: httpx.AsyncClient, etf_infos: list[dict]) ->
         for info in etf_infos
     ])
 
-    prompt = f"""对以下ETF进行行业板块分类。
+    prompt = f"""对以下ETF进行行业板块分类并生成描述。
 
 ## ETF列表
 {etf_list}
@@ -136,10 +136,18 @@ async def ai_classify_batch(client: httpx.AsyncClient, etf_infos: list[dict]) ->
 1. 分类到A股行业板块：黄金、有色、芯片、半导体、人工智能、医药、证券、银行、军工、光伏、新能源、锂电池、白酒、消费、农业、煤炭、钢铁、石油、化工、电力、机器人、通信、游戏、传媒、房地产、家电、环保、汽车、软件、互联网、恒生科技、港股
 2. 无法分类的标记为"其他"
 
+## 描述要求
+- 20-30字，突出投资标的和特点
+- 不要重复ETF名称
+- 示例：
+  - 黄金ETF → "跟踪上海金现货，对冲通胀和避险首选"
+  - 芯片ETF → "覆盖半导体设计、制造、封测全产业链龙头"
+  - 证券ETF → "券商股打包投资，牛市弹性大"
+
 ## 输出JSON
 ```json
 {{
-  "ETF代码": {{"sector": "板块", "desc": "一句话描述(20字内)"}},
+  "ETF代码": {{"sector": "板块", "desc": "描述"}},
   ...
 }}
 ```"""
