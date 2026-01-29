@@ -138,9 +138,9 @@ async function loadCommodityCycle() {
         const kline = c.kline;
         const min = Math.min(...kline), max = Math.max(...kline);
         const range = max - min || 1;
-        const pts = kline.map((v,i) => (i*60/(kline.length-1))+','+(18-(v-min)/range*16)).join(' ');
+        const pts = kline.map((v,i) => (i*120/(kline.length-1))+','+(20-(v-min)/range*20)).join(' ');
         const color = kline[kline.length-1] >= kline[0] ? '#dc2626' : '#16a34a';
-        spark = '<svg class="cycle-chart" viewBox="0 0 60 18" preserveAspectRatio="none"><polyline points="'+pts+'" fill="none" stroke="'+color+'" stroke-width="1.5"/></svg>';
+        spark = '<svg class="cycle-chart" viewBox="0 0 120 20" preserveAspectRatio="none"><polyline points="'+pts+'" fill="none" stroke="'+color+'" stroke-width="1.5"/></svg>';
       }
       return '<span class="cycle-stage ' + (isLeader ? 'active' : '') + '">' + icons[k] + ' ' + names[k] + ' <small>' + chg + '</small>' + spark + '</span>';
     }).join('');

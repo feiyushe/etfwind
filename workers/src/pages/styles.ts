@@ -17,7 +17,7 @@ header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(135de
 .source-stats a:hover { background: #f3f4f6; border-color: #d1d5db; color: #374151; }
 .card { background: #fff; border-radius: 10px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
 .global-indices { display: flex; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
-.idx { font-size: 13px; padding: 4px 10px; background: #f9fafb; border-radius: 6px; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.idx { flex: 1; font-size: 13px; padding: 4px 10px; background: #f9fafb; border-radius: 6px; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
 .idx-chart { width: 120px; height: 20px; }
 .idx-chart polyline { stroke-width: 2.5; }
 .idx svg { vertical-align: middle; }
@@ -72,11 +72,12 @@ header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(135de
 .card p.summary { font-size: 14px; color: #374151; line-height: 1.8; }
 .sentiment { display: inline-block; padding: 2px 10px; background: #fef3c7; color: #b45309; border-radius: 4px; font-size: 12px; font-weight: 500; }
 .cycle-card { display: flex; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
-.cycle-stage { flex: 1; min-width: 100px; font-size: 13px; padding: 4px 10px; background: #f9fafb; border-radius: 6px; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.cycle-stage { flex: 1; font-size: 13px; padding: 4px 10px; background: #f9fafb; border-radius: 6px; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
 .cycle-stage.active { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); font-weight: 600; }
 .cycle-stage small { font-size: 11px; color: #6b7280; }
 .cycle-stage.active small { color: #b45309; }
-.cycle-stage .cycle-chart { width: 60px; height: 18px; margin-left: auto; }
+.cycle-stage .cycle-chart { width: 120px; height: 20px; margin-left: auto; }
+.cycle-stage .cycle-chart polyline { stroke-width: 2.5; }
 @media (max-width: 600px) {
   .container { padding: 12px; }
   header { flex-wrap: wrap; gap: 6px; }
