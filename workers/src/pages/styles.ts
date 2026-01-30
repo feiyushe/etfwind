@@ -82,7 +82,7 @@ header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(135de
   .github-link, .powered-by { display: none; }
   .indicators-grid { grid-template-columns: repeat(2, 1fr); padding: 8px; gap: 6px; grid-auto-flow: column; grid-template-rows: repeat(5, auto); }
   .ind-cell { font-size: 12px; padding: 4px 8px; }
-  .ind-chart { display: none; }
+  .ind-chart { width: 60px; height: 16px; }
   .sectors-grid { grid-template-columns: 1fr; }
   .card h2 { font-size: 15px; }
   .card p { font-size: 12px; }
