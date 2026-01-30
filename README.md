@@ -14,6 +14,8 @@ AI 驱动的 ETF 投资风向分析工具。自动采集财经新闻，通过 Cl
 - Claude AI 分析市场动态，输出板块研判 + 风险提示
 - 智能匹配板块 ETF，展示实时行情 + 90日走势
 - 商品周期轮动指标（黄金→白银→铜→石油→农产品）
+- **决策仪表盘**：买入/观望/回避信号 + 检查清单
+- **企业微信推送**：分析完成自动推送到群
 - 每小时自动更新，完全自动化
 
 ## 架构
@@ -136,6 +138,7 @@ cd workers && npm run deploy
 CLAUDE_API_KEY=sk-xxx        # 必需
 CLAUDE_BASE_URL=https://...  # 可选，支持中转
 CLAUDE_MODEL=claude-sonnet-4-20250514  # 可选
+WECHAT_WEBHOOK_URL=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx  # 可选，企业微信推送
 ```
 
 ## 踩过的坑

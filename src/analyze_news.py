@@ -7,12 +7,14 @@ from pathlib import Path
 from loguru import logger
 
 from src.models import NewsItem
+from src.config import settings
 from src.worker_simple import (
     DATA_DIR, ARCHIVE_DIR,
     archive_data, load_history, format_history_context,
     enrich_sectors_with_etfs, save_news,
 )
 from src.analyzers.realtime import analyze
+from src.notify import send_wechat_message, format_analysis_message
 
 
 def load_news_raw() -> tuple[list[NewsItem], dict]:
@@ -93,6 +95,12 @@ async def run():
 
     # 保存新闻列表
     await save_news(items, beijing_tz)
+
+    # 企业微信推送
+    if settings.wechat_webhook_url:
+        logger.info("发送企业微信推送...")
+        message = format_analysis_message(output)
+        await send_wechat_message(settings.wechat_webhook_url, message)
 
     logger.info("分析完成")
 

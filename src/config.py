@@ -16,6 +16,11 @@ class Settings(BaseSettings):
         default="claude-opus-4-5", alias="CLAUDE_MODEL"
     )
 
+    # 企业微信推送配置
+    wechat_webhook_url: str = Field(
+        default="", alias="WECHAT_WEBHOOK_URL"
+    )
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

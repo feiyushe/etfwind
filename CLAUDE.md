@@ -49,6 +49,7 @@ Cloudflare Workers ← 从 R2 读取 JSON 渲染页面
 - `src/analyzers/realtime.py` - Claude AI 分析
 - `src/collectors/` - 10个新闻采集器
 - `src/services/fund_service.py` - ETF 数据服务
+- `src/notify/` - 通知推送模块（企业微信）
 - `config/etf_master.json` - ETF 主数据（642个ETF，32个板块）
 - `scripts/update_etf_master.py` - ETF Master 更新脚本
 - `workers/src/index.ts` - Hono 路由
@@ -60,6 +61,7 @@ Cloudflare Workers ← 从 R2 读取 JSON 渲染页面
 - `CLAUDE_API_KEY`: Claude API 密钥（必需）
 - `CLAUDE_BASE_URL`: API 地址，支持中转
 - `CLAUDE_MODEL`: 模型名称，默认 claude-sonnet-4-20250514
+- `WECHAT_WEBHOOK_URL`: 企业微信 Webhook URL（可选，配置后自动推送）
 
 Cloudflare R2（数据存储）：
 - Bucket: `invest-data`
@@ -98,28 +100,31 @@ Cloudflare R2（数据存储）：
 }
 ```
 
-**latest.json（AI 分析结果，含 FOTH）：**
+**latest.json（AI 分析结果，含决策仪表盘）：**
 ```json
 {
   "result": {
     "market_view": "🎯 市场状态一句话",
-    "narrative": "市场全景分析（150字）",
-    "facts": ["黄金突破2800美元", "美联储维持利率不变"],
-    "opinions": {
-      "sentiment": "偏乐观",
-      "hot_words": ["避险", "看涨", "突破"],
-      "media_bias": "多数媒体看多黄金"
-    },
+    "summary": "市场全景分析（150字）",
+    "sentiment": "偏乐观/分歧/偏悲观",
     "sectors": [
       {
         "name": "板块名",
         "heat": 5,
         "direction": "利好/利空/中性",
         "analysis": "板块深度分析（80-100字）",
-        "news": ["📰 消息 → 解读"]
+        "signal": "🟢买入/🟡观望/🔴回避",
+        "checklist": ["✅ 利好因素", "⚠️ 注意事项", "❌ 风险点"]
       }
     ],
-    "risk_level": "低/中/高"
+    "risk_alerts": ["风险1：...", "风险2：..."],
+    "opportunity_hints": ["机会1：...", "机会2：..."],
+    "commodity_cycle": {
+      "stage": 1,
+      "stage_name": "黄金领涨期",
+      "leader": "gold",
+      "analysis": "周期分析"
+    }
   },
   "updated_at": "2026-01-28T10:00:00+08:00",
   "news_count": 302,
@@ -374,3 +379,52 @@ text = text.replace('"', '"').replace('"', '"')
 - Cloudflare Workers 免费额度托管前端
 - R2 存储静态 JSON，无数据库成本
 - 每小时更新，API 调用量可控
+
+### 7. 决策仪表盘
+
+**借鉴来源**：[daily_stock_analysis](https://github.com/ZhuLinsen/daily_stock_analysis)
+
+**核心功能**：
+- 板块信号：🟢买入 / 🟡观望 / 🔴回避
+- 检查清单：✅利好 / ⚠️注意 / ❌风险
+- 风险提示 + 机会提示独立展示
+
+**AI Prompt 设计**：
+```python
+# 嵌入交易原则到 prompt
+TRADING_PRINCIPLES = """
+1. 板块轮动规律：资金从高位板块流向低位板块
+2. ETF配置原则：优先选择成交额>5亿、跟踪误差小的ETF
+3. 风险识别要点：连续大涨后警惕回调，政策利空需规避
+"""
+```
+
+### 8. 企业微信推送
+
+**模块**：`src/notify/wechat.py`
+
+**功能**：
+- 分析完成后自动推送到企业微信群
+- Markdown 格式，包含板块信号、风险/机会提示
+- 配置 `WECHAT_WEBHOOK_URL` 环境变量即可启用
+
+**消息格式**：
+```markdown
+## 🎯 市场观点标题
+
+摘要内容...
+
+### 板块信号
+> 🟢 **半导体** 🔥🔥🔥 利好
+>    ✅ AI需求强劲 ✅ 业绩超预期
+
+### ⚠️ 风险提示
+> 风险1：...
+
+### 💡 机会提示
+> 机会1：...
+
+---
+📊 基于 381 条新闻分析 | 01-31 00:41
+🔗 [查看详情](https://etf.aurora-bots.com/)
+```
