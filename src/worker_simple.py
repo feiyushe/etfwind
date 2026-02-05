@@ -259,7 +259,7 @@ def _describe_trend(arrows: list[str]) -> str:
         return ""
 
     if len(arrows) == 1:
-        return "今日" + ("利好" if arrows[0] == "↑" else "利空" if arrows[0] == "↓" else "中性")
+        return "利好" if arrows[0] == "↑" else "利空" if arrows[0] == "↓" else "中性"
 
     # 统计连续相同方向
     up_count = arrows.count("↑")
@@ -272,13 +272,13 @@ def _describe_trend(arrows: list[str]) -> str:
 
     # 生成描述
     if all(a == "↑" for a in arrows):
-        return f"{len(arrows)}连利好"
+        return "利好"
     elif all(a == "↓" for a in arrows):
-        return f"{len(arrows)}连利空"
+        return "利空"
     elif recent_up >= 2 and down_count > 0:
-        return "近日转好"
+        return "转好"
     elif recent_down >= 2 and up_count > 0:
-        return "近日转弱"
+        return "转弱"
     elif up_count > down_count:
         return "偏好"
     elif down_count > up_count:
