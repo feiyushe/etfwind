@@ -33,7 +33,7 @@ def archive_data(beijing_tz):
         if not daily_file.exists():
             data = json.loads(latest_file.read_text())
             result = data.get("result", {})
-            # 简化归档：只保存趋势所需的最小数据
+            # 归档：保存趋势和摘要数据
             archive = {
                 "date": today,
                 "sectors": {
@@ -42,6 +42,7 @@ def archive_data(beijing_tz):
                 },
                 "sentiment": result.get("sentiment", ""),
                 "market_view": result.get("market_view", ""),
+                "summary": result.get("summary", ""),
             }
             daily_file.write_text(json.dumps(archive, ensure_ascii=False, indent=2))
             logger.info(f"✅ 归档成功: {daily_file.name}")
@@ -113,6 +114,7 @@ def load_history(days: int = 7) -> list[dict]:
                     "sectors": data["sectors"],
                     "sentiment": data.get("sentiment", ""),
                     "market_view": data.get("market_view", ""),
+                    "summary": data.get("summary", ""),
                 })
                 logger.info(f"  ✅ {date_str}: {len(data['sectors'])} 个板块")
                 continue
@@ -129,6 +131,7 @@ def load_history(days: int = 7) -> list[dict]:
                     "sectors": sectors,
                     "sentiment": result.get("sentiment", ""),
                     "market_view": result.get("market_view", ""),
+                    "summary": result.get("summary", ""),
                 })
                 logger.info(f"  ✅ {date_str}: {len(sectors)} 个板块 (旧格式)")
             else:
@@ -181,18 +184,23 @@ def format_history_context(history: list[dict]) -> str:
 
     lines = []
 
-    # 添加历史市场观点（最近7天，与板块趋势对齐）
-    market_views = []
+    # 添加历史市场观点和摘要（最近7天）
+    history_items = []
     for h in history[:7]:
         date = h.get("date", "")
         view = h.get("market_view", "")
-        if date and view:
-            market_views.append(f"- {date}: {view}")
+        summary = h.get("summary", "")
+        if date and (view or summary):
+            item = f"### {date}\n"
+            if view:
+                item += f"**观点**: {view}\n"
+            if summary:
+                item += f"**摘要**: {summary}\n"
+            history_items.append(item)
 
-    if market_views:
-        lines.append("## 近日市场观点")
-        lines.extend(market_views)
-        lines.append("")
+    if history_items:
+        lines.append("## 近7日市场回顾")
+        lines.extend(history_items)
 
     # 收集所有出现过的板块
     all_sectors = set()
