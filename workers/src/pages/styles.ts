@@ -76,6 +76,12 @@ header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(135de
 .price-header.closed { color: #9ca3af; }
 .card p.summary { font-size: 14px; color: #374151; line-height: 1.8; }
 .sentiment { display: inline-block; padding: 2px 10px; background: #fef3c7; color: #b45309; border-radius: 4px; font-size: 12px; font-weight: 500; }
+.review-card { padding: 10px 12px; }
+.review-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.review-item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; text-align: center; }
+.review-title { font-size: 12px; color: #64748b; margin-bottom: 4px; }
+.review-metric { font-size: 13px; color: #1f2937; }
+.review-sub { font-size: 11px; color: #94a3b8; margin-top: 4px; }
 .alerts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
 .alert-box { background: #fff; border-radius: 10px; padding: 10px 12px; font-size: 12px; line-height: 1.6; }
 .alert-box b { display: block; margin-bottom: 4px; font-size: 13px; }

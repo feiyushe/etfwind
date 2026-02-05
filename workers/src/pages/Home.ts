@@ -201,8 +201,8 @@ function renderSectorCard(sector: any, etfMaster: Record<string, any>, trend?: {
     </table>
   `
 
-  // 渲染信号标签
-  const signalHtml = sector.signal ? `<span class="sector-signal">${sector.signal}</span>` : ''
+  // 渲染信号标签（有状态时避免重复）
+  const signalHtml = sector.signal && !sector.state ? `<span class="sector-signal">${sector.signal}</span>` : ''
 
   // 渲染7日趋势箭头
   const trendHtml = trend?.arrows ? `<span class="sector-trend">${trend.arrows}</span>` : ''
@@ -271,7 +271,7 @@ function renderSectorCard(sector: any, etfMaster: Record<string, any>, trend?: {
 
 // 渲染首页
 export function renderHome(data: LatestData, etfMaster: Record<string, any>): string {
-  const { result, sector_trends, updated_at, news_count, source_stats } = data
+  const { result, sector_trends, review, updated_at, news_count, source_stats } = data
 
   // Source 按权威度排序
   const sourceOrder = ['Bloomberg', 'WSJ', 'CNBC', '财联社', '财联社电报', '新浪财经', '东方财富', '东财快讯', '新浪7x24', '金十数据', '华尔街见闻']
@@ -344,6 +344,25 @@ export function renderHome(data: LatestData, etfMaster: Record<string, any>): st
       </div>
       <p class="summary">${result.summary || result.narrative || ''}</p>
     </div>
+
+    ${review ? `
+    <div class="card review-card">
+      <div class="card-header">
+        <h2>信号复盘</h2>
+        <span class="meta">${formatTime(review.as_of)}</span>
+      </div>
+      <div class="review-grid">
+        ${Object.entries(review.horizons || {}).map(([k, v]: any) => `
+          <div class="review-item">
+            <div class="review-title">${k}日</div>
+            <div class="review-metric">胜率 ${v.win_rate}%</div>
+            <div class="review-metric">均值 ${v.avg_return}%</div>
+            <div class="review-sub">${v.count} 条</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    ` : ''}
 
     ${result.risk_alerts?.length || result.opportunity_hints?.length ? `
     <div class="alerts-row">

@@ -20,6 +20,116 @@ DATA_DIR.mkdir(exist_ok=True)
 ARCHIVE_DIR = DATA_DIR / "archive"
 ARCHIVE_DIR.mkdir(exist_ok=True)
 
+# 信号复盘数据
+REVIEW_FILE = DATA_DIR / "review.json"
+
+
+def _parse_date(date_str: str) -> datetime | None:
+    try:
+        return datetime.strptime(date_str, "%Y-%m-%d")
+    except Exception:
+        return None
+
+
+def _days_between(now: datetime, date_str: str) -> int | None:
+    d = _parse_date(date_str)
+    if not d:
+        return None
+    return (now.replace(tzinfo=None) - d).days
+
+
+def load_review_data() -> dict:
+    if REVIEW_FILE.exists():
+        try:
+            return json.loads(REVIEW_FILE.read_text())
+        except Exception:
+            pass
+    return {"signals": []}
+
+
+def save_review_data(data: dict):
+    REVIEW_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+
+
+async def update_review(result: dict, beijing_tz) -> dict:
+    """更新信号复盘数据并返回汇总指标"""
+    data = load_review_data()
+    signals: list[dict] = data.get("signals", [])
+
+    # 更新历史信号的当前价格
+    codes = list({s.get("etf_code") for s in signals if s.get("etf_code")})
+    latest_prices = {}
+    if codes:
+        latest_prices = await fund_service.batch_get_funds(codes)
+
+    now = datetime.now(beijing_tz)
+    for s in signals:
+        code = s.get("etf_code")
+        if code in latest_prices:
+            s["latest_price"] = latest_prices[code].get("price")
+
+    # 添加今日信号（只记录买入信号，short/mid 各一条）
+    today = now.strftime("%Y-%m-%d")
+    sectors = result.get("sectors", [])
+    today_entries = []
+    for sector in sectors:
+        etfs = sector.get("etfs") or []
+        if not etfs:
+            continue
+        code = etfs[0].get("code")
+        price = etfs[0].get("price")
+        if not code or price is None:
+            continue
+        for key in ("short_term", "mid_term"):
+            sig = sector.get(key)
+            if not sig:
+                continue
+            signal_text = sig.get("signal", "")
+            if "买入" not in signal_text:
+                continue
+            today_entries.append({
+                "date": today,
+                "sector": sector.get("name"),
+                "type": key,
+                "signal": signal_text,
+                "etf_code": code,
+                "entry_price": price,
+            })
+
+    if today_entries:
+        signals.extend(today_entries)
+
+    data["signals"] = signals
+    data["updated_at"] = now.isoformat()
+    save_review_data(data)
+
+    # 计算复盘指标（1/3/7/20日）
+    horizons = [1, 3, 7, 20]
+    summary = {"as_of": now.isoformat(), "horizons": {}}
+    for h in horizons:
+        returns = []
+        for s in signals:
+            days = _days_between(now, s.get("date", ""))
+            if days is None or days < h:
+                continue
+            entry = s.get("entry_price")
+            latest = s.get("latest_price")
+            if not entry or not latest:
+                continue
+            returns.append((latest - entry) / entry * 100)
+        if returns:
+            win_rate = sum(1 for r in returns if r > 0) / len(returns) * 100
+            avg_ret = sum(returns) / len(returns)
+            summary["horizons"][str(h)] = {
+                "count": len(returns),
+                "win_rate": round(win_rate, 1),
+                "avg_return": round(avg_ret, 2),
+            }
+        else:
+            summary["horizons"][str(h)] = {"count": 0, "win_rate": 0, "avg_return": 0}
+
+    return summary
+
 
 def archive_data(beijing_tz):
     """归档数据：只保存板块趋势指标，用于7日趋势展示"""

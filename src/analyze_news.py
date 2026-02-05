@@ -11,7 +11,7 @@ from src.config import settings
 from src.worker_simple import (
     DATA_DIR, ARCHIVE_DIR,
     archive_data, load_history, format_history_context,
-    enrich_sectors_with_etfs, save_news, build_sector_trends,
+    enrich_sectors_with_etfs, save_news, build_sector_trends, update_review,
 )
 from src.analyzers.realtime import analyze
 from src.notify import send_wechat_message, format_analysis_message
@@ -88,10 +88,14 @@ async def run():
     sector_trends = build_sector_trends(history, result.get("sectors", []))
     logger.info(f"构建趋势: {len(sector_trends)} 个板块")
 
+    # 信号复盘
+    review = await update_review(result, beijing_tz)
+
     # 保存结果
     output = {
         "result": result,
         "sector_trends": sector_trends,
+        "review": review,
         "updated_at": datetime.now(beijing_tz).isoformat(),
         "news_count": len(items),
         "source_stats": source_stats,
