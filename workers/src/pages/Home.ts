@@ -218,7 +218,7 @@ function renderSectorCard(sector: any, etfMaster: Record<string, any>, trend?: {
   // 置信度标签
   const confidence = typeof sector.confidence === 'number' ? Math.max(0, Math.min(100, sector.confidence)) : null
   const confidenceHtml = confidence !== null
-    ? `<span class="sector-confidence">置信度 ${confidence}</span>`
+    ? `<span class="sector-confidence">置信 ${confidence}</span>`
     : ''
 
   // 状态与短中期信号
@@ -227,8 +227,8 @@ function renderSectorCard(sector: any, etfMaster: Record<string, any>, trend?: {
   const midTerm = sector.mid_term
   const signalRowHtml = (shortTerm || midTerm)
     ? `<div class="sector-signals">
-        ${shortTerm ? `<span class="signal-badge">短线 ${shortTerm.signal}</span><span class="signal-reason">${shortTerm.reason || ''}</span>` : ''}
-        ${midTerm ? `<span class="signal-badge">中期 ${midTerm.signal}</span><span class="signal-reason">${midTerm.reason || ''}</span>` : ''}
+        ${shortTerm ? `<span class="signal-badge">短 ${shortTerm.signal}</span><span class="signal-reason">${shortTerm.reason || ''}</span>` : ''}
+        ${midTerm ? `<span class="signal-badge">中 ${midTerm.signal}</span><span class="signal-reason">${midTerm.reason || ''}</span>` : ''}
       </div>`
     : ''
 

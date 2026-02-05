@@ -280,9 +280,9 @@ def _describe_trend(arrows: list[str]) -> str:
     elif recent_down >= 2 and up_count > 0:
         return "近日转弱"
     elif up_count > down_count:
-        return "整体偏好"
+        return "偏好"
     elif down_count > up_count:
-        return "整体偏弱"
+        return "偏弱"
     else:
         return "震荡"
 

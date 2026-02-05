@@ -36,7 +36,7 @@ header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(135de
 .sector-card.down.heat-4 { border-left-color: #475569; }
 .sector-card.down.heat-5 { border-left-color: #334155; }
 .sector-card.neutral { background: #fafafa; border-left: 3px solid #d1d5db; }
-.sector-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.sector-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: nowrap; overflow-x: auto; }
 .sector-right { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .sector-dir { font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 3px; }
 .sector-dir.up { background: #fef3c7; color: #b45309; }
@@ -119,7 +119,10 @@ header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(135de
   .card p { font-size: 12px; }
   .sector-name { font-size: 15px; }
   .sector-analysis { font-size: 11px; }
+  .sector-signals { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 6px; }
+  .signal-reason { display: none; }
   .sector-card { overflow-x: hidden; }
+  .review-grid { display: flex; gap: 8px; overflow-x: auto; }
   .etf-table { font-size: 12px; table-layout: fixed; }
   .etf-table thead { display: none; }
   .etf-table td:nth-child(1) { width: 41%; }
