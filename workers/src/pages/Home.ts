@@ -220,14 +220,19 @@ function renderSectorCard(sector: any, etfMaster: Record<string, any>, trend?: {
   const evidence = Array.isArray(sector.evidence) ? sector.evidence.slice(0, 3) : []
   const evidenceHtml = evidence.length
     ? `<div class="sector-evidence">
-        <div class="evidence-title">证据</div>
-        ${evidence.map((e: any) => `
+        <div class="evidence-title">新闻</div>
+        ${evidence.map((e: any) => {
+          const title = e.title || ''
+          const source = e.source || ''
+          const reason = e.reason ? `<span class="evidence-reason">— ${e.reason}</span>` : ''
+          const link = e.url ? `<a class="evidence-link" href="${e.url}" target="_blank" rel="noopener noreferrer">${title}</a>` : `<span class="evidence-text">${title}</span>`
+          return `
           <div class="evidence-item">
-            <span class="evidence-source">[${e.source || ''}]</span>
-            <span class="evidence-text">${e.title || ''}</span>
-            ${e.reason ? `<span class="evidence-reason">— ${e.reason}</span>` : ''}
-          </div>
-        `).join('')}
+            <span class="evidence-source">[${source}]</span>
+            ${link}
+            ${reason}
+          </div>`
+        }).join('')}
       </div>`
     : ''
 

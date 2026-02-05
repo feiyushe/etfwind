@@ -14,6 +14,7 @@ export interface Sector {
 export interface SectorEvidence {
   title: string
   source: string
+  url?: string
   reason?: string
 }
 

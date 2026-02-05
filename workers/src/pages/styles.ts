@@ -100,6 +100,8 @@ header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(135de
 .sector-evidence .evidence-item { margin-bottom: 3px; }
 .sector-evidence .evidence-item:last-child { margin-bottom: 0; }
 .sector-evidence .evidence-source { color: #64748b; margin-right: 4px; }
+.sector-evidence .evidence-link { color: #2563eb; text-decoration: none; }
+.sector-evidence .evidence-link:hover { text-decoration: underline; }
 .sector-evidence .evidence-reason { color: #6b7280; margin-left: 4px; }
 @media (max-width: 600px) {
   .container { padding: 12px; }
