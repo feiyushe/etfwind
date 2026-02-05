@@ -221,7 +221,7 @@ def build_sector_trends(history: list[dict], current_sectors: list[dict]) -> dic
 
     for sector_name in current_names:
         arrows = []
-        # 从历史数据中提取（从旧到新）
+        # 从历史数据中提取（从旧到新），没提到的天显示中性
         for h in reversed(history):
             s = h.get("sectors", {}).get(sector_name, {})
             d = s.get("dir", "")
@@ -229,8 +229,8 @@ def build_sector_trends(history: list[dict], current_sectors: list[dict]) -> dic
                 arrows.append("↑")
             elif d == "利空":
                 arrows.append("↓")
-            elif d:
-                arrows.append("→")
+            else:
+                arrows.append("→")  # 没提到或中性都显示→
 
         # 添加今日
         current = next((s for s in current_sectors if s["name"] == sector_name), None)
