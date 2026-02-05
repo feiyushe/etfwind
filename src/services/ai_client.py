@@ -89,4 +89,15 @@ def parse_json_with_repair(text: str, *, fix_newlines: bool = False) -> dict[str
             def _fix_newlines(m: re.Match) -> str:
                 return m.group(0).replace("\n", " ").replace("\r", "")
             repaired = re.sub(r'"[^"]*"', _fix_newlines, repaired)
-        return json.loads(repaired)
+        try:
+            return json.loads(repaired)
+        except json.JSONDecodeError as e2:
+            logger.warning(f"JSON 修复失败，尝试二次修复: {e2}")
+            # Trim to outermost JSON object and normalize whitespace
+            start = repaired.find("{")
+            end = repaired.rfind("}")
+            if start != -1 and end != -1 and end > start:
+                repaired = repaired[start:end + 1]
+            repaired = repaired.replace("\n", " ").replace("\r", " ").replace("\t", " ")
+            repaired = re.sub(r",(\s*[}\]])", r"\1", repaired)
+            return json.loads(repaired)

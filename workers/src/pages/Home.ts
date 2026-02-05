@@ -215,19 +215,55 @@ function renderSectorCard(sector: any, etfMaster: Record<string, any>, trend?: {
     ? `<div class="sector-checklist">${sector.checklist.map((c: string) => `<span>${c}</span>`).join('')}</div>`
     : ''
 
+  // 置信度标签
+  const confidence = typeof sector.confidence === 'number' ? Math.max(0, Math.min(100, sector.confidence)) : null
+  const confidenceHtml = confidence !== null
+    ? `<span class="sector-confidence">置信度 ${confidence}</span>`
+    : ''
+
+  // 状态与短中期信号
+  const stateHtml = sector.state ? `<span class="sector-state">${sector.state}</span>` : ''
+  const shortTerm = sector.short_term
+  const midTerm = sector.mid_term
+  const signalRowHtml = (shortTerm || midTerm)
+    ? `<div class="sector-signals">
+        ${shortTerm ? `<span class="signal-badge">短线 ${shortTerm.signal}</span><span class="signal-reason">${shortTerm.reason || ''}</span>` : ''}
+        ${midTerm ? `<span class="signal-badge">中期 ${midTerm.signal}</span><span class="signal-reason">${midTerm.reason || ''}</span>` : ''}
+      </div>`
+    : ''
+
+  // 证据卡片
+  const evidence = Array.isArray(sector.evidence) ? sector.evidence.slice(0, 3) : []
+  const evidenceHtml = evidence.length
+    ? `<div class="sector-evidence">
+        <div class="evidence-title">证据</div>
+        ${evidence.map((e: any) => `
+          <div class="evidence-item">
+            <span class="evidence-source">[${e.source || ''}]</span>
+            <span class="evidence-text">${e.title || ''}</span>
+            ${e.reason ? `<span class="evidence-reason">— ${e.reason}</span>` : ''}
+          </div>
+        `).join('')}
+      </div>`
+    : ''
+
   return `
     <div class="sector-card ${dirClass(sector.direction)} heat-${sector.heat}">
       <div class="sector-header">
         <span class="sector-name">${sector.name}</span>
         <span class="sector-heat">${stars(sector.heat)}</span>
         ${signalHtml}
+        ${confidenceHtml}
+        ${stateHtml}
         <span class="sector-right">
           ${trendHtml}
           <span class="sector-dir ${dirClass(sector.direction)}">${dirText}</span>
         </span>
       </div>
       <div class="sector-analysis">${sector.analysis}</div>
+      ${signalRowHtml}
       ${checklistHtml}
+      ${evidenceHtml}
       ${etfTableHtml}
     </div>
   `
