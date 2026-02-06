@@ -18,12 +18,12 @@ AI 驱动的 ETF 投资风向分析工具。自动采集财经新闻，通过 Cl
 - **信号复盘**：1/3/7/20 交易日胜率/均值/沪深300超额
 - **决策仪表盘**：买入/观望/回避信号 + 综合分析
 - **企业微信推送**：分析完成自动推送到群
-- 每小时自动更新，完全自动化
+- 每3小时自动更新（6:00-21:00 北京时间），完全自动化
 
 ## 架构
 
 ```
-GitHub Actions (每小时)
+GitHub Actions (每3小时)
 ├── 采集新闻 → news.json → R2
 └── AI分析 → latest.json → R2
          ↓
@@ -139,7 +139,7 @@ cd workers && npm run deploy
 ```bash
 CLAUDE_API_KEY=sk-xxx        # 必需
 CLAUDE_BASE_URL=https://...  # 可选，支持中转
-CLAUDE_MODEL=claude-sonnet-4-20250514  # 可选
+CLAUDE_MODEL=claude-opus-4-6  # 可选
 WECHAT_WEBHOOK_URL=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx  # 可选，企业微信推送
 ```
 

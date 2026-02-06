@@ -17,6 +17,7 @@ from .bloomberg import BloombergCollector
 from .techcrunch import TechCrunchCollector
 from .bbc import BBCCollector
 from .huxiu import HuxiuCollector
+from .stcn import StcnCollector
 
 # Playwright 采集器（可选）
 _playwright_collectors = []
@@ -47,6 +48,7 @@ class NewsAggregator:
             CLSNewsCollector(),
             EastMoneyCollector(),
             SinaFinanceCollector(),
+            StcnCollector(),
         ]
         if include_international:
             self.collectors.extend([

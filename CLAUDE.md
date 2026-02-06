@@ -53,7 +53,7 @@ Cloudflare Workers ← 从 R2 读取 JSON 渲染页面
 - `src/analyze_news.py` - AI 分析模块
 - `src/worker_simple.py` - 共享逻辑（归档、历史、ETF匹配）
 - `src/analyzers/realtime.py` - Claude AI 分析
-- `src/collectors/` - 10个新闻采集器
+- `src/collectors/` - 11个新闻采集器（含证券时报）
 - `src/services/fund_service.py` - ETF 数据服务
 - `src/notify/` - 通知推送模块（企业微信）
 - `config/etf_master.json` - ETF 主数据（642个ETF，32个板块）
@@ -340,10 +340,10 @@ Latest        │  今日事件        │  今日情绪
 
 ### 1. 多源采集 + 智能去重
 
-**架构设计**：采集器基类 + 策略模式，10个采集器并发执行
+**架构设计**：采集器基类 + 策略模式，11个采集器并发执行
 ```
 BaseCollector (抽象基类)
-├── httpx 采集器：财联社、东方财富、新浪、Bloomberg、CNBC
+├── httpx 采集器：财联社、东方财富、新浪、证券时报、Bloomberg、CNBC
 └── Playwright 采集器：动态渲染页面（金十、华尔街见闻）
 ```
 
