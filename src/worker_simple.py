@@ -19,12 +19,6 @@ DATA_DIR.mkdir(exist_ok=True)
 # 归档目录
 ARCHIVE_DIR = DATA_DIR / "archive"
 
-# 板块重命名映射（历史归档中的旧名 → 当前标准名）
-SECTOR_RENAME = {
-    "人工智能": "AI",
-    "半导体": "芯片",
-    "恒生科技": "港股",
-}
 ARCHIVE_DIR.mkdir(exist_ok=True)
 
 # 信号复盘数据
@@ -57,8 +51,8 @@ def load_review_data() -> dict:
     if REVIEW_FILE.exists():
         try:
             return json.loads(REVIEW_FILE.read_text())
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"⚠️ review.json 解析失败: {e}")
     return {"signals": []}
 
 
@@ -99,6 +93,10 @@ async def update_review(result: dict, beijing_tz) -> dict:
 
     if today_entries:
         signals.extend(today_entries)
+
+    # 只保留最近90天的信号，防止无限增长
+    cutoff = (now - timedelta(days=90)).strftime("%Y-%m-%d")
+    signals = [s for s in signals if s.get("date", "") >= cutoff]
 
     data["signals"] = signals
     data["updated_at"] = now.isoformat()
@@ -351,12 +349,10 @@ def format_history_context(history: list[dict]) -> str:
         lines.append("## 近7日市场回顾")
         lines.extend(history_items)
 
-    # 收集所有出现过的板块（旧名统一为新名）
-    all_sectors: dict[str, str] = {}  # new_name -> new_name
+    # 收集所有出现过的板块
+    all_sectors: set[str] = set()
     for h in history:
-        for name in h.get("sectors", {}).keys():
-            renamed = SECTOR_RENAME.get(name, name)
-            all_sectors[renamed] = renamed
+        all_sectors.update(h.get("sectors", {}).keys())
 
     if all_sectors:
         lines.append("## 近7日板块趋势")
@@ -364,16 +360,8 @@ def format_history_context(history: list[dict]) -> str:
     # 为每个板块生成趋势箭头
     for sector in sorted(all_sectors):
         arrows = []
-        # 查找时同时匹配新名和可能的旧名
-        old_names = [k for k, v in SECTOR_RENAME.items() if v == sector]
-        lookup_names = [sector] + old_names
         for h in reversed(history):  # 从旧到新
-            sectors_data = h.get("sectors", {})
-            s = {}
-            for ln in lookup_names:
-                if ln in sectors_data:
-                    s = sectors_data[ln]
-                    break
+            s = h.get("sectors", {}).get(sector, {})
             d = s.get("dir", "")
             if d == "利好":
                 arrows.append("↑")
@@ -403,17 +391,9 @@ def build_sector_trends(history: list[dict], current_sectors: list[dict]) -> dic
 
     for sector_name in current_names:
         arrows = []
-        # 查找时同时匹配新名和可能的旧名
-        old_names = [k for k, v in SECTOR_RENAME.items() if v == sector_name]
-        lookup_names = [sector_name] + old_names
         # 从历史数据中提取（从旧到新），没提到的天显示中性
         for h in reversed(history):
-            sectors_data = h.get("sectors", {})
-            s = {}
-            for ln in lookup_names:
-                if ln in sectors_data:
-                    s = sectors_data[ln]
-                    break
+            s = h.get("sectors", {}).get(sector_name, {})
             d = s.get("dir", "")
             if d == "利好":
                 arrows.append("↑")

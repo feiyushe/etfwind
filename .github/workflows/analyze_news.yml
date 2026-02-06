@@ -9,6 +9,7 @@ on:
 jobs:
   analyze:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@v4
@@ -31,7 +32,7 @@ jobs:
           AWS_ENDPOINT_URL: https://3cd484f565a03d34b3c765a2e17a8989.r2.cloudflarestorage.com
         run: |
           mkdir -p src/data/archive
-          aws s3 cp s3://invest-data/news_raw.json src/data/news_raw.json || true
+          aws s3 cp s3://invest-data/news_raw.json src/data/news_raw.json
           aws s3 sync s3://invest-data/archive/ src/data/archive/ || true
           aws s3 cp s3://invest-data/latest.json src/data/latest.json || true
           aws s3 cp s3://invest-data/review.json src/data/review.json || true
@@ -52,3 +53,4 @@ jobs:
           aws s3 cp src/data/news.json s3://invest-data/news.json || true
           aws s3 cp src/data/review.json s3://invest-data/review.json
           aws s3 sync src/data/archive/ s3://invest-data/archive/
+          aws s3 cp config/etf_master.json s3://invest-data/etf_master.json

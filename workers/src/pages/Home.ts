@@ -1,5 +1,5 @@
 import type { LatestData } from '../types'
-import { SECTOR_ALIAS } from '../types'
+import { SECTOR_ALIAS, esc } from '../types'
 import { styles } from './styles'
 
 // 格式化时间（年月日 时分）
@@ -228,7 +228,7 @@ function renderSectorCard(sector: any, etfMaster: Record<string, any>, trend?: {
           <span class="sector-dir ${dirClass(sector.direction)}">${dirText}</span>
         </span>
       </div>
-      <div class="sector-analysis">${sector.analysis}</div>
+      <div class="sector-analysis">${esc(sector.analysis)}</div>
       ${etfTableHtml}
     </div>
   `
@@ -263,7 +263,7 @@ export function renderHome(data: LatestData, etfMaster: Record<string, any>): st
 
   // 生成动态 SEO 描述
   const topSectors = sortedSectors.slice(0, 3).map(s => s.name).join('、')
-  const seoDesc = `${result.market_view} 今日热门板块：${topSectors}。AI 实时分析财经新闻，智能推荐 ETF 投资方向。`
+  const seoDesc = esc(`${result.market_view} 今日热门板块：${topSectors}。AI 实时分析财经新闻，智能推荐 ETF 投资方向。`)
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -304,10 +304,10 @@ export function renderHome(data: LatestData, etfMaster: Record<string, any>): st
 
     <div class="card">
       <div class="card-header">
-        <h2>${result.market_view}</h2>
+        <h2>${esc(result.market_view)}</h2>
         ${result.sentiment ? `<span class="sentiment">${result.sentiment}</span>` : ''}
       </div>
-      <p class="summary">${result.summary || result.narrative || ''}</p>
+      <p class="summary">${esc(result.summary || result.narrative || '')}</p>
     </div>
 
     ${review ? `
@@ -336,14 +336,14 @@ export function renderHome(data: LatestData, etfMaster: Record<string, any>): st
         <h2>过热提示</h2>
         <span class="overheat-badge ${overheat.level}">${overheat.level}</span>
       </div>
-      <div class="overheat-text">${overheat.note}（${overheat.count} 个高热板块）</div>
+      <div class="overheat-text">${esc(overheat.note)}（${overheat.count} 个高热板块）</div>
     </div>
     ` : ''}
 
     ${result.risk_alerts?.length || result.opportunity_hints?.length ? `
     <div class="alerts-row">
-      ${result.risk_alerts?.length ? `<div class="alert-box risk"><b>⚠️ 风险提示</b>${result.risk_alerts.map((r: string) => `<div>${r}</div>`).join('')}</div>` : ''}
-      ${result.opportunity_hints?.length ? `<div class="alert-box opportunity"><b>💡 机会提示</b>${result.opportunity_hints.map((o: string) => `<div>${o}</div>`).join('')}</div>` : ''}
+      ${result.risk_alerts?.length ? `<div class="alert-box risk"><b>⚠️ 风险提示</b>${result.risk_alerts.map((r: string) => `<div>${esc(r)}</div>`).join('')}</div>` : ''}
+      ${result.opportunity_hints?.length ? `<div class="alert-box opportunity"><b>💡 机会提示</b>${result.opportunity_hints.map((o: string) => `<div>${esc(o)}</div>`).join('')}</div>` : ''}
     </div>
     ` : ''}
 

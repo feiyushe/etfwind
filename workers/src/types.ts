@@ -97,10 +97,14 @@ export interface Env {
   R2: R2Bucket
 }
 
+// HTML 转义（防 XSS）
+export function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 // 板块别名映射（AI输出 -> ETF板块）
 export const SECTOR_ALIAS: Record<string, string> = {
   '新能源车': '锂电池',
-  '新能源': '光伏',
   '创新药': '医药',
   '贵金属': '黄金',
   '券商': '证券',

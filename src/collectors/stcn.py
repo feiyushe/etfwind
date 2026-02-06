@@ -1,7 +1,7 @@
 """证券时报新闻采集器"""
 
 import re
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 
 from bs4 import BeautifulSoup
 from loguru import logger
@@ -106,7 +106,8 @@ class StcnCollector(BaseCollector):
                 hour, minute = int(match.group(1)), int(match.group(2))
                 if 0 <= hour <= 23 and 0 <= minute <= 59:
                     today = date.today()
-                    return datetime(today.year, today.month, today.day, hour, minute)
+                    return datetime(today.year, today.month, today.day, hour, minute,
+                                    tzinfo=timezone(timedelta(hours=8)))
         return None
 
     def _classify(self, text: str) -> NewsCategory:

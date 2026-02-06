@@ -1,4 +1,5 @@
 import type { NewsItem } from '../types'
+import { esc } from '../types'
 import { styles } from './styles'
 
 // 格式化时间
@@ -29,9 +30,9 @@ const newsStyles = `
 export function renderNews(news: NewsItem[], source?: string | null): string {
   const newsListHtml = news.map(item => `
     <li class="news-item">
-      <a class="news-title" href="${item.url}" target="_blank">${item.title}</a>
+      <a class="news-title" href="${esc(item.url)}" target="_blank">${esc(item.title)}</a>
       <div class="news-meta">
-        <span class="news-source">${item.source}</span>
+        <span class="news-source">${esc(item.source)}</span>
         <span>${formatTime(item.published_at)}</span>
       </div>
     </li>
@@ -57,7 +58,7 @@ export function renderNews(news: NewsItem[], source?: string | null): string {
     </header>
 
     <div class="card">
-      <h2>新闻列表${source ? ` - ${source}` : ''}</h2>
+      <h2>新闻列表${source ? ` - ${esc(source)}` : ''}</h2>
       <div class="filter-bar">
         <a href="/news" class="${!source ? 'active' : ''}">全部</a>
       </div>

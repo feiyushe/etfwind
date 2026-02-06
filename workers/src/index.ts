@@ -122,12 +122,13 @@ async function loadNews(r2: R2Bucket): Promise<NewsItem[]> {
 
 // 首页
 app.get('/', async (c) => {
-  const [data, etfMaster, news] = await Promise.all([
-    loadData(c.env.R2),
-    loadEtfMaster(c.env.R2),
-    loadNews(c.env.R2),
-  ])
-  return c.html(renderHome(data, etfMaster))
+  return await withCache(c, c.req.url, 120, async () => {
+    const [data, etfMaster] = await Promise.all([
+      loadData(c.env.R2),
+      loadEtfMaster(c.env.R2),
+    ])
+    return c.html(renderHome(data, etfMaster))
+  })
 })
 
 // API: 分析数据

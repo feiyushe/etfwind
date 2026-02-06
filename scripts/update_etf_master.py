@@ -179,6 +179,47 @@ async def ai_classify_batch(client: httpx.AsyncClient, etf_infos: list[dict]) ->
         return {}
 
 
+async def fetch_kline_changes(client: httpx.AsyncClient, code: str) -> dict:
+    """获取 ETF 的 90 天 K 线数据和 5日/20日涨跌幅"""
+    secid = f"1.{code}" if code.startswith("5") else f"0.{code}"
+    try:
+        resp = await client.get(
+            "https://push2his.eastmoney.com/api/qt/stock/kline/get",
+            params={
+                "secid": secid,
+                "fields1": "f1,f2,f3",
+                "fields2": "f51,f52,f53,f54,f55,f56",
+                "klt": "101",
+                "fqt": "1",
+                "end": "20500101",
+                "lmt": "95",
+            },
+        )
+        klines = resp.json().get("data", {}).get("klines", [])
+        if not klines:
+            return {}
+
+        closes = [float(k.split(",")[2]) for k in klines]
+        today_close = closes[-1]
+        change_5d = 0
+        change_20d = 0
+
+        if len(closes) >= 6:
+            change_5d = round((today_close - closes[-6]) / closes[-6] * 100, 2)
+        if len(closes) >= 21:
+            change_20d = round((today_close - closes[-21]) / closes[-21] * 100, 2)
+
+        kline_data = closes[-90:] if len(closes) >= 90 else closes
+        return {
+            "change_5d": change_5d,
+            "change_20d": change_20d,
+            "kline": kline_data,
+        }
+    except Exception as e:
+        logger.warning(f"获取K线失败 {code}: {e}")
+        return {}
+
+
 async def main():
     """主函数"""
     if not CLAUDE_API_KEY:
@@ -225,8 +266,28 @@ async def main():
             all_classifications.update(result)
             await asyncio.sleep(1)  # 避免限流
 
-    # Step 4: 构建最终数据
-    logger.info("=== Step 4: 构建数据 ===")
+    # Step 4: 获取 K 线数据
+    logger.info("=== Step 4: 获取 K 线数据 ===")
+    kline_map = {}
+    async with httpx.AsyncClient(timeout=30, headers={"Referer": "https://quote.eastmoney.com/"}) as client:
+        sem = asyncio.Semaphore(5)
+
+        async def fetch_kline_with_sem(code):
+            async with sem:
+                return code, await fetch_kline_changes(client, code)
+
+        codes = [d["code"] for d in details]
+        tasks = [fetch_kline_with_sem(c) for c in codes]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for r in results:
+            if isinstance(r, tuple):
+                code, data = r
+                if data:
+                    kline_map[code] = data
+    logger.info(f"获取到 {len(kline_map)}/{len(details)} 个 ETF 的 K 线数据")
+
+    # Step 5: 构建最终数据
+    logger.info("=== Step 5: 构建数据 ===")
     etf_master = {}
     sector_map = {}
 
@@ -236,6 +297,7 @@ async def main():
         sector = classify.get("sector", "其他")
         desc = classify.get("desc", "")
 
+        kline_data = kline_map.get(code, {})
         etf_master[code] = {
             "code": code,
             "name": detail.get("name", ""),
@@ -248,6 +310,9 @@ async def main():
             "desc": desc,
             "scope": detail.get("scope", "")[:200],
             "risk": detail.get("risk", "")[:100],
+            "change_5d": kline_data.get("change_5d", 0),
+            "change_20d": kline_data.get("change_20d", 0),
+            "kline": kline_data.get("kline", []),
         }
 
         # 构建板块索引

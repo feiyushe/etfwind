@@ -1,6 +1,6 @@
 """财联社新闻采集器"""
 
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
 from loguru import logger
@@ -52,7 +52,7 @@ class CLSNewsCollector(BaseCollector):
             ctime = item.get("ctime")
             published_at = None
             if ctime:
-                published_at = datetime.fromtimestamp(ctime)
+                published_at = datetime.fromtimestamp(ctime, tz=timezone(timedelta(hours=8)))
 
             # 分类
             category = self._classify(title + content)

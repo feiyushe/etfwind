@@ -1,16 +1,15 @@
-name: Collect News
+name: Update ETF Master
 
 on:
   schedule:
-    # 6:00-21:00 (UTC+8) 每3小时，即 UTC 22:00, 1, 4, 7, 10, 13
-    - cron: '0 22 * * *'
-    - cron: '0 1-13/3 * * *'
+    # 每月1号 UTC 10:00 (北京时间18:00，收盘后)
+    - cron: '0 10 1 * *'
   workflow_dispatch:
 
 jobs:
-  collect:
+  update:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -25,19 +24,15 @@ jobs:
 
       - run: pip install .
 
-      - uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('pyproject.toml') }}
-
-      - run: python -m playwright install chromium --with-deps
-
-      - name: Collect news
-        run: python -m src.collect_news
+      - name: Update ETF master data
+        env:
+          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+          CLAUDE_BASE_URL: ${{ secrets.CLAUDE_BASE_URL }}
+        run: python scripts/update_etf_master.py
 
       - name: Upload to R2
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           AWS_ENDPOINT_URL: https://3cd484f565a03d34b3c765a2e17a8989.r2.cloudflarestorage.com
-        run: aws s3 cp src/data/news_raw.json s3://invest-data/news_raw.json
+        run: aws s3 cp config/etf_master.json s3://invest-data/etf_master.json
