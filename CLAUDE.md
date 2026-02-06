@@ -38,7 +38,7 @@ PYTHONPATH=. uv run python scripts/update_etf_master.py
 
 ```
 GitHub Actions
-├── Collect News (collect_news.yml, 每小时 6:00-23:00 UTC+8) → news_raw.json → R2
+├── Collect News (collect_news.yml, 每3小时 6:00-21:00 UTC+8) → news_raw.json → R2
 │   └── 含 Playwright，耗时 ~1.5分钟
 │
 └── Analyze News (analyze_news.yml, 采集后自动触发 / 手动)
@@ -68,7 +68,7 @@ Cloudflare Workers ← 从 R2 读取 JSON 渲染页面
 环境变量（.env）：
 - `CLAUDE_API_KEY`: Claude API 密钥（必需）
 - `CLAUDE_BASE_URL`: API 地址，支持中转
-- `CLAUDE_MODEL`: 模型名称，默认 claude-sonnet-4-20250514
+- `CLAUDE_MODEL`: 模型名称，默认 claude-opus-4-6
 - `WECHAT_WEBHOOK_URL`: 企业微信 Webhook URL（可选，配置后自动推送）
 
 Cloudflare R2（数据存储）：
