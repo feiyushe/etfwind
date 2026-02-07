@@ -180,7 +180,8 @@ async def ai_classify_batch(client: httpx.AsyncClient, etf_infos: list[dict]) ->
 
 
 async def fetch_kline_changes(client: httpx.AsyncClient, code: str) -> dict:
-    """获取 ETF 的 90 天 K 线数据和 5日/20日涨跌幅"""
+    """获取 ETF 的 90 天 K 线数据和 5日/20日涨跌幅（东方财富 → 新浪降级）"""
+    # 优先东方财富
     secid = f"1.{code}" if code.startswith("5") else f"0.{code}"
     try:
         resp = await client.get(
@@ -196,28 +197,40 @@ async def fetch_kline_changes(client: httpx.AsyncClient, code: str) -> dict:
             },
         )
         klines = resp.json().get("data", {}).get("klines", [])
-        if not klines:
-            return {}
+        if klines:
+            return _calc_changes([float(k.split(",")[2]) for k in klines])
+    except Exception:
+        pass
 
-        closes = [float(k.split(",")[2]) for k in klines]
-        today_close = closes[-1]
-        change_5d = 0
-        change_20d = 0
+    # 降级：新浪 K 线 API
+    try:
+        prefix = "sh" if code.startswith("5") else "sz"
+        resp = await client.get(
+            "https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData",
+            params={"symbol": f"{prefix}{code}", "scale": "240", "ma": "no", "datalen": "95"},
+            headers={"Referer": "https://finance.sina.com.cn"},
+        )
+        data = resp.json()
+        if data and isinstance(data, list) and len(data) >= 2:
+            return _calc_changes([float(item["close"]) for item in data])
+    except Exception:
+        pass
 
-        if len(closes) >= 6:
-            change_5d = round((today_close - closes[-6]) / closes[-6] * 100, 2)
-        if len(closes) >= 21:
-            change_20d = round((today_close - closes[-21]) / closes[-21] * 100, 2)
+    return {}
 
-        kline_data = closes[-90:] if len(closes) >= 90 else closes
-        return {
-            "change_5d": change_5d,
-            "change_20d": change_20d,
-            "kline": kline_data,
-        }
-    except Exception as e:
-        logger.warning(f"获取K线失败 {code}: {e}")
+
+def _calc_changes(closes: list[float]) -> dict:
+    """根据收盘价序列计算涨跌幅"""
+    if len(closes) < 2:
         return {}
+    today = closes[-1]
+    change_5d = round((today - closes[-6]) / closes[-6] * 100, 2) if len(closes) >= 6 else 0
+    change_20d = round((today - closes[-21]) / closes[-21] * 100, 2) if len(closes) >= 21 else 0
+    return {
+        "change_5d": change_5d,
+        "change_20d": change_20d,
+        "kline": closes[-90:] if len(closes) >= 90 else closes,
+    }
 
 
 async def main():
