@@ -266,24 +266,26 @@ async def main():
             all_classifications.update(result)
             await asyncio.sleep(1)  # 避免限流
 
-    # Step 4: 获取 K 线数据
+    # Step 4: 获取 K 线数据（分批，低并发，避免被东方财富断连）
     logger.info("=== Step 4: 获取 K 线数据 ===")
     kline_map = {}
-    async with httpx.AsyncClient(timeout=30, headers={"Referer": "https://quote.eastmoney.com/"}) as client:
-        sem = asyncio.Semaphore(5)
-
-        async def fetch_kline_with_sem(code):
-            async with sem:
-                return code, await fetch_kline_changes(client, code)
-
-        codes = [d["code"] for d in details]
-        tasks = [fetch_kline_with_sem(c) for c in codes]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        for r in results:
-            if isinstance(r, tuple):
-                code, data = r
-                if data:
-                    kline_map[code] = data
+    codes = [d["code"] for d in details]
+    batch_size = 20
+    async with httpx.AsyncClient(
+        timeout=15,
+        limits=httpx.Limits(max_connections=3),
+        headers={"Referer": "https://quote.eastmoney.com/"},
+    ) as client:
+        for i in range(0, len(codes), batch_size):
+            batch = codes[i:i + batch_size]
+            tasks = [fetch_kline_changes(client, c) for c in batch]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for code, result in zip(batch, results):
+                if isinstance(result, dict) and result:
+                    kline_map[code] = result
+            logger.info(f"  K线进度: {min(i + batch_size, len(codes))}/{len(codes)}, 成功: {len(kline_map)}")
+            if i + batch_size < len(codes):
+                await asyncio.sleep(1)
     logger.info(f"获取到 {len(kline_map)}/{len(details)} 个 ETF 的 K 线数据")
 
     # Step 5: 构建最终数据
