@@ -279,15 +279,15 @@ async def main():
             all_classifications.update(result)
             await asyncio.sleep(1)  # 避免限流
 
-    # Step 4: 获取 K 线数据（分批，低并发，避免被东方财富断连）
+    # Step 4: 获取 K 线数据（小批量 + 长间隔，避免被限流）
     logger.info("=== Step 4: 获取 K 线数据 ===")
     kline_map = {}
     codes = [d["code"] for d in details]
-    batch_size = 20
+    batch_size = 10
     async with httpx.AsyncClient(
         timeout=15,
-        limits=httpx.Limits(max_connections=3),
-        headers={"Referer": "https://quote.eastmoney.com/"},
+        limits=httpx.Limits(max_connections=2),
+        headers={"Referer": "https://finance.sina.com.cn"},
     ) as client:
         for i in range(0, len(codes), batch_size):
             batch = codes[i:i + batch_size]
@@ -296,9 +296,10 @@ async def main():
             for code, result in zip(batch, results):
                 if isinstance(result, dict) and result:
                     kline_map[code] = result
-            logger.info(f"  K线进度: {min(i + batch_size, len(codes))}/{len(codes)}, 成功: {len(kline_map)}")
+            if (i // batch_size) % 10 == 0:
+                logger.info(f"  K线进度: {min(i + batch_size, len(codes))}/{len(codes)}, 成功: {len(kline_map)}")
             if i + batch_size < len(codes):
-                await asyncio.sleep(1)
+                await asyncio.sleep(2)
     logger.info(f"获取到 {len(kline_map)}/{len(details)} 个 ETF 的 K 线数据")
 
     # Step 5: 构建最终数据
