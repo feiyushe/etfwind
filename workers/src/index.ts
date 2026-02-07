@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import type { Env, LatestData, NewsItem } from './types'
 import { SECTOR_ALIAS } from './types'
-import { fetchFunds } from './services/fund'
+import { fetchFunds, fetchKline } from './services/fund'
 import { renderHome } from './pages/Home'
 import { renderNews } from './pages/News'
 import { renderCycle } from './pages/Cycle'
@@ -145,6 +145,16 @@ app.get('/api/funds', async (c) => {
     const codes = c.req.query('codes')?.split(',').filter(Boolean) || []
     const funds = await fetchFunds(codes)
     return c.json(funds)
+  })
+})
+
+// API: ETF K线数据（90天收盘价 + 5日/20日涨跌幅，24h缓存）
+app.get('/api/kline', async (c) => {
+  return await withCache(c, c.req.url, 86400, async () => {
+    const codes = c.req.query('codes')?.split(',').filter(Boolean) || []
+    if (!codes.length) return c.json({})
+    const klineData = await fetchKline(codes)
+    return c.json(klineData)
   })
 })
 

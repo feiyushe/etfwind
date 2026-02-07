@@ -195,6 +195,7 @@ Cloudflare R2（数据存储）：
 - `GET /news` - 新闻列表
 - `GET /api/data` - 分析数据 JSON
 - `GET /api/funds?codes=518880,512760` - ETF 实时行情
+- `GET /api/kline?codes=518880,512760` - ETF K线数据（90天收盘价+5日/20日涨跌幅，24h缓存）
 - `GET /api/batch-sector-etfs?sectors=黄金,芯片` - 批量板块 ETF
 - `GET /api/etf-master` - ETF 主数据
 - `GET /api/global-indices` - 全球指标（美元、黄金、BTC、上证、纳指）含90天K线

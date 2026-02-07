@@ -122,12 +122,56 @@ async function loadSectorEtfs() {
   try {
     const resp = await fetch('/api/batch-sector-etfs?sectors=' + encodeURIComponent(sectors.join(',')));
     const { data } = await resp.json();
+    const allCodes = [];
     for (const sector of sectors) {
       const table = document.querySelector(\`.etf-table[data-sector="\${sector}"]\`);
       const etfs = data[sector] || [];
       renderEtfs(table, etfs);
+      etfs.forEach(e => { if (e.code) allCodes.push(e.code); });
     }
+    // 异步加载最新K线数据（24h缓存）
+    if (allCodes.length) loadKline([...new Set(allCodes)]);
   } catch (e) { console.error(e); }
+}
+
+async function loadKline(codes) {
+  try {
+    const resp = await fetch('/api/kline?codes=' + codes.join(','));
+    const kdata = await resp.json();
+    const chgCls = v => {
+      const abs = Math.abs(v);
+      const dir = v >= 0 ? 'up' : 'down';
+      if (abs >= 5) return dir + '-5';
+      if (abs >= 3) return dir + '-3';
+      if (abs >= 1) return dir + '-1';
+      return dir;
+    };
+    const fmt = v => (v < 0 ? '-' : '') + Math.abs(v).toFixed(1) + '%';
+    for (const [code, d] of Object.entries(kdata)) {
+      const rows = document.querySelectorAll(\`tr[data-code="\${code}"]\`);
+      rows.forEach(row => {
+        // 更新5日涨跌
+        const cells = row.querySelectorAll('td');
+        if (cells.length >= 7) {
+          const c5 = cells[4];
+          c5.textContent = fmt(d.change_5d);
+          c5.className = chgCls(d.change_5d);
+          const c20 = cells[5];
+          c20.textContent = fmt(d.change_20d);
+          c20.className = chgCls(d.change_20d);
+          // 重绘sparkline
+          if (d.kline && d.kline.length > 1) {
+            const kline = d.kline;
+            const min = Math.min(...kline), max = Math.max(...kline);
+            const range = max - min || 1;
+            const pts = kline.map((v,i) => (i*100/(kline.length-1))+','+(16-(v-min)/range*16)).join(' ');
+            const color = kline[kline.length-1] >= kline[0] ? '#dc2626' : '#16a34a';
+            cells[6].innerHTML = '<svg class="sparkline" viewBox="0 0 100 16" preserveAspectRatio="none"><polyline points="'+pts+'" fill="none" stroke="'+color+'" stroke-width="1.2"/></svg>';
+          }
+        }
+      });
+    }
+  } catch (e) { console.error('K线加载失败', e); }
 }
 
 function renderEtfs(table, etfs) {

@@ -32,7 +32,8 @@ R2 Bucket (invest-data)
 **数据流：**
 - 静态数据（latest.json, etf_master.json）由 GitHub Actions 定时生成并上传到 R2
 - 实时数据（价格、今日涨跌、成交额）由 `/api/batch-sector-etfs` 调用东方财富 API 获取
-- 前端先用 etf_master 渲染历史数据，再异步加载实时数据覆盖
+- K线数据（90天收盘价、5日/20日涨跌幅）由 `/api/kline` 按需拉取，24h 缓存
+- 前端三层加载：SSR 用 etf_master 渲染 → batch-sector-etfs 更新价格 → /api/kline 刷新 sparkline 和涨跌幅
 
 ## API Routes
 
@@ -41,6 +42,7 @@ R2 Bucket (invest-data)
 - `GET /api/data` - 分析结果 JSON
 - `GET /api/batch-sector-etfs?sectors=黄金,芯片` - 批量板块 ETF（合并实时+历史）
 - `GET /api/funds?codes=518880,512760` - ETF 实时行情
+- `GET /api/kline?codes=518880,512760` - ETF K线（90天收盘价+5日/20日涨跌，24h缓存）
 - `GET /api/etf-master` - ETF 主数据
 
 ## Key Files
