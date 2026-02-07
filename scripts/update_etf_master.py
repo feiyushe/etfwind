@@ -22,8 +22,8 @@ from loguru import logger
 
 # 配置
 CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY", "")
-CLAUDE_BASE_URL = os.getenv("CLAUDE_BASE_URL", "https://zenmux.ai/api/anthropic")
-CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-opus-4-6")
+CLAUDE_BASE_URL = os.getenv("CLAUDE_BASE_URL", "https://api.anthropic.com")
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514")
 
 # 排除关键词
 EXCLUDE_KEYWORDS = [
