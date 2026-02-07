@@ -38,7 +38,7 @@ PYTHONPATH=. uv run python scripts/update_etf_master.py
 
 ```
 GitHub Actions
-├── Collect News (collect_news.yml, 每3小时 6:00-21:00 UTC+8) → news_raw.json → R2
+├── Collect News (collect_news.yml, 每2小时 6:00-20:00 UTC+8) → news_raw.json → R2
 │   └── 含 Playwright，耗时 ~1.5分钟
 │
 ├── Analyze News (analyze_news.yml, 采集后自动触发 / 手动)
