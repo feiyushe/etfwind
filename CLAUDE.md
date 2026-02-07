@@ -60,7 +60,7 @@ Cloudflare Workers ← 从 R2 读取 JSON 渲染页面
 - `src/collectors/` - 11个新闻采集器（含证券时报）
 - `src/services/fund_service.py` - ETF 数据服务
 - `src/notify/` - 通知推送模块（企业微信）
-- `config/etf_master.json` - ETF 主数据（642个ETF，30个板块）
+- `config/etf_master.json` - ETF 主数据（699个ETF，30个板块）
 - `scripts/update_etf_master.py` - ETF Master 更新脚本
 - `workers/src/index.ts` - Hono 路由
 - `workers/src/pages/Home.ts` - 首页渲染
@@ -71,7 +71,7 @@ Cloudflare Workers ← 从 R2 读取 JSON 渲染页面
 
 环境变量（.env）：
 - `CLAUDE_API_KEY`: Claude API 密钥（必需）
-- `CLAUDE_BASE_URL`: API 地址，支持中转
+- `CLAUDE_BASE_URL`: API 地址，当前中转 `zenmux.openclawfarm.com/api/anthropic`
 - `CLAUDE_MODEL`: 模型名称，默认 claude-opus-4-6
 - `WECHAT_WEBHOOK_URL`: 企业微信 Webhook URL（可选，配置后自动推送）
 
@@ -255,6 +255,14 @@ git push → 确认到达 → gh workflow run
 # 错误：先触发再推代码，workflow 跑的是旧代码
 gh workflow run → git push  ← 白跑一次
 ```
+
+### R2 写入前必须检查数据质量
+
+`update_etf_master.py` 已加入质量门槛：AI 分类后板块数 < 10 则 `exit(1)`，阻止上传 R2。
+
+**出过的问题**：中转 proxy 挂了 → AI 分类全部 404 → 所有 ETF 归为"其他" → sector_list=[] 的坏数据覆盖了 R2 → 前端所有板块 ETF 推荐为空。
+
+**原则**：外部依赖会静默失败，写入持久存储前必须校验数据质量。Fast-fail 优于静默容错。
 
 ### Playwright 闭环验证
 
