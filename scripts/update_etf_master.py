@@ -344,6 +344,12 @@ async def main():
             reverse=True
         )
 
+    # 数据质量检查：分类后至少要有 10 个板块，否则拒绝保存
+    if len(sector_map) < 10:
+        logger.error(f"❌ 数据质量检查失败：仅 {len(sector_map)} 个板块（最少需要 10 个），AI 分类可能全部失败")
+        logger.error("❌ 拒绝保存，防止覆盖 R2 上的正常数据。请检查 CLAUDE_BASE_URL 和 CLAUDE_API_KEY")
+        raise SystemExit(1)
+
     # 保存结果
     output = {
         "etfs": etf_master,
