@@ -82,14 +82,14 @@ Cloudflare R2（数据存储）：
 ## Deployment
 
 - **Web**: Cloudflare Workers（`workers/`）
-- **采集/分析**: GitHub Actions（每 3 小时，含 Playwright）
+- **采集/分析**: GitHub Actions（每 2 小时 6:00-20:00 UTC+8，含 Playwright）
 - **ETF Master 更新**: GitHub Actions（每月 1 号，含 AI 分类 + K 线）
 - **数据存储**: Cloudflare R2（`invest-data` bucket）
 - **URL**: https://etf.aurora-bots.com/
 
 ## Key Data Structures
 
-**etf_master.json（ETF 主数据，642个ETF，30个板块）：**
+**etf_master.json（ETF 主数据）：**
 ```json
 {
   "etfs": {
@@ -191,15 +191,17 @@ Cloudflare R2（数据存储）：
 ## API Endpoints
 
 **Workers (workers/src/index.ts)：**
-- `GET /` - 首页
-- `GET /news` - 新闻列表
-- `GET /api/data` - 分析数据 JSON
-- `GET /api/funds?codes=518880,512760` - ETF 实时行情
+- `GET /` - 首页（30min缓存）
+- `GET /news` - 新闻列表（支持 `?source=财联社` 过滤）
+- `GET /cycle` - 商品周期页面
+- `GET /api/data` - 分析数据 JSON（30min缓存）
+- `GET /api/funds?codes=518880,512760` - ETF 实时行情（5min缓存）
 - `GET /api/kline?codes=518880,512760` - ETF K线数据（90天收盘价+5日/20日涨跌幅，24h缓存）
-- `GET /api/batch-sector-etfs?sectors=黄金,芯片` - 批量板块 ETF
-- `GET /api/etf-master` - ETF 主数据
-- `GET /api/market-overview` - 全球指标+商品周期（合并，10min缓存）
-- `GET /api/review` - 信号回测数据
+- `GET /api/batch-sector-etfs?sectors=黄金,芯片` - 批量板块 ETF（5min缓存）
+- `GET /api/etf-master` - ETF 主数据（含 sector_list/sectors/updated_at，24h缓存）
+- `GET /api/market-overview` - 全球指标+商品周期（10min缓存）
+- `GET /api/review` - 信号回测数据（30min缓存）
+- `GET /api/poster` - 每日海报 SVG（1h缓存）
 - `GET /health` - 健康检查
 
 ## Tech Stack
@@ -264,266 +266,13 @@ gh workflow run → git push  ← 白跑一次
 
 **原则**：外部依赖会静默失败，写入持久存储前必须校验数据质量。Fast-fail 优于静默容错。
 
-### Playwright 闭环验证
-
-修改前端代码后，使用 Playwright 自动打开网站验证效果：
-```
-1. 部署后用 browser_navigate 打开页面
-2. 用 browser_snapshot 获取页面结构，检查数据是否正确渲染
-3. 发现问题 → 修复代码 → 重新部署 → 再次验证
-4. 完成后用 browser_close 关闭浏览器
-```
-
-**注意**：不要用 browser_take_screenshot 截图后发给自己看，图片会导致 context 溢出。始终使用 browser_snapshot 获取文本结构。
-
 ### AI 结构化使用原则
 
-让 AI 只负责"内容生成"，代码负责"结构组装"，避免让 AI 自由发挥格式：
+AI 只负责"内容生成"，代码负责"结构组装"。分步提取 → 代码组装 → 验证兜底。不要让 AI 直接输出完整 JSON（字段遗漏、格式不一致）。
 
-**问题**：让 AI 直接输出完整 JSON，会导致字段遗漏、格式不一致（如 sources 有时有有时无）
+## Design Notes
 
-**解决方案**：
-1. **分步提取**：将复杂任务拆分为多个简单问题，每次只问一个方面
-2. **代码组装**：由代码构建最终数据结构，AI 只填充内容
-3. **明确约束**：给 AI 提供输入数据的索引，让它引用而非重新格式化
-4. **验证兜底**：代码层面检查必填字段，缺失时记录警告或使用默认值
-
-**示例**：
-```python
-# 不好：让 AI 输出完整 JSON
-prompt = "分析新闻，输出 JSON 格式的 focus_events..."
-
-# 好：分步提取，代码组装
-step1 = "从以下新闻中识别最重要的5个事件，只输出事件标题列表"
-step2 = "对于事件'{title}'，提供：1.所属板块 2.分析(80字) 3.建议(15字)"
-step3 = "事件'{title}'相关的ETF代码是？从候选列表中选择：{etf_list}"
-# 代码负责组装最终结构，并从原始新闻中提取 sources
-```
-
-## FOTH Matrix 信息处理方法论
-
-> 核心思路：新闻分析时，将信息按 Facts/Opinions 和 History/Latest 两个维度拆分，避免情绪污染事实判断。代码实现见 `src/analyzers/realtime.py` 中的 `format_history_context()`。
-
-**FOTH = Facts-Opinions × Time-Horizon**
-
-处理信息流时，按两个维度分离：
-- **内容维度**：Facts（客观事件） vs Opinions（主观判断/情绪）
-- **时间维度**：History（历史） vs Latest（当前）
-
-```
-              │  Facts          │  Opinions
-──────────────┼─────────────────┼──────────────────
-History       │  历史事件        │  历史情绪
-              │  黄金2750→2780   │  当时"看涨"声多
-──────────────┼─────────────────┼──────────────────
-Latest        │  今日事件        │  今日情绪
-              │  黄金2800        │  "避险升温"频现
-```
-
-### 四象限的作用
-
-| 象限 | 内容 | 作用 |
-|------|------|------|
-| History Facts | 价格、涨跌、政策、事件 | 趋势基准，判断延续/反转 |
-| History Opinions | 当时的情绪词、媒体倾向 | 情绪对比，识别过热/过冷 |
-| Latest Facts | 今天的客观事件 | 当前发生了什么 |
-| Latest Opinions | 今天的情绪信号 | 市场现在怎么看 |
-
-### AI 分析策略
-
-基于四象限组合判断：
-- Facts 连涨 + Opinions 从冷到热 → 趋势确认
-- Facts 连涨 + Opinions 过热 → 可能见顶
-- Facts 下跌 + Opinions 恐慌 → 可能超卖
-- Facts 平稳 + Opinions 分歧 → 观望
-
-### 实现要点
-
-1. **新闻拆分**：从原始新闻中分离 facts 和 opinions
-2. **归档存储**：分别存储，便于历史对比
-3. **干净上下文**：给 AI 明确标注哪些是 facts、哪些是 opinions
-4. **独立判断**：AI 基于 facts 做判断，参考 opinions 做情绪校准
-
----
-
-## AI 工作方法论
-
-### 核心循环
-
-**发现 → 理解 → 计划 → 执行 → 试错 → 反馈 → 修正 → 迭代 → 反思**
-
-### 关键原则
-
-1. **突破需要想象力**
-   - 避免路径依赖，适当发散思考
-   - 大方向和策略的改变比细节优化更重要
-   - 工具放大改变的效果和范围（对的和错的都会放大）
-
-2. **积极使用工具**
-   - 主动使用 skill、plugin、command
-   - AI 只说不做无法产生改变
-   - 代码无差别，随时可以重构
-
-3. **从错误中学习**
-   - 及时反思总结，增加到 CLAUDE.md
-   - 通过 demo 和 case 学习，提取抽象可复制的经验
-   - 意识到环境和反馈对自己的影响
-
-4. **最小化 vs 最积极**
-   - 架构足够好时，个体智能不需要太高
-   - 最小化使用 AI（简单任务）
-   - 最积极使用 AI（复杂决策、创意生成）
-
-5. **愿景**
-   - 一公司的人打电脑，忽然某天电脑就自己跑起来，人就可以站起来走了
-   - 从简单的例子开始变强变复杂
-   - AI 能去焦虑
-
-## 技术亮点
-
-### 1. 多源采集 + 智能去重
-
-**架构设计**：采集器基类 + 策略模式，11个采集器并发执行
-```
-BaseCollector (抽象基类)
-├── httpx 采集器：财联社、东方财富、新浪、证券时报、Bloomberg、CNBC
-└── Playwright 采集器：动态渲染页面（金十、华尔街见闻）
-```
-
-**亮点**：
-- `safe_collect()` 统一异常处理，单个源失败不影响整体
-- Playwright 采集器串行执行 + 3秒间隔，避免被封
-- 按标题去重，按时间排序，处理混合时区问题
-
-### 2. AI 语义分类 ETF
-
-**问题**：ETF 名称多样（"芯片ETF"、"半导体50"、"集成电路"），关键词匹配不准
-
-**解决方案**：Claude AI 批量分类
-```python
-prompt = """对以下ETF进行行业板块分类...
-分类规则：相似板块统一名称（券商→证券，医疗→医药）
-排除类型：宽基指数、债券、货币、跨境..."""
-```
-
-**亮点**：
-- AI 理解语义，"科创芯片ETF" 和 "半导体龙头" 都归入"芯片"
-- 代码层面二次过滤，排除宽基/债券/跨境 ETF
-- 板块别名映射（贵金属→黄金，新能源→光伏）保证前后端一致
-
-### 3. 多级数据源降级
-
-**策略**：主源失败自动切换备用源
-```
-ETF列表：新浪 API → 东方财富 API
-K线数据：东方财富 → 新浪（修复 sparkline 缺失）
-R2存储：binding 直连 → HTTP 公开 URL
-```
-
-**亮点**：
-- 缓存机制（K线 5分钟，ETF列表 24小时）减少 API 调用
-- 异常时静默降级，不中断主流程
-
-### 4. SSR + 异步水合
-
-**渲染策略**：服务端预渲染 + 客户端异步加载实时数据
-```
-首屏：SSR 渲染历史数据（20日涨跌、K线图）
-水合：JS 异步请求 /api/batch-sector-etfs 覆盖实时价格
-```
-
-**亮点**：
-- 首屏秒开，无需等待实时 API
-- 实时数据只更新价格/涨跌/成交额，保留历史 K线
-
-### 5. JSON 自动修复
-
-**问题**：AI 输出的 JSON 偶尔格式错误
-
-**修复策略**：
-```python
-# 移除尾部逗号
-text = re.sub(r',(\s*[}\]])', r'\1', text)
-# 中文引号替换
-text = text.replace('"', '"').replace('"', '"')
-```
-
-### 6. Serverless 架构
-
-**成本优化**：
-- GitHub Actions 免费额度运行采集（含 Playwright）
-- Cloudflare Workers 免费额度托管前端
-- R2 存储静态 JSON，无数据库成本
-- 每小时更新，API 调用量可控
-
-### 7. 决策仪表盘
-
-**借鉴来源**：[daily_stock_analysis](https://github.com/ZhuLinsen/daily_stock_analysis)
-
-**核心功能**：
-- 板块信号：🟢买入 / 🟡观望 / 🔴回避
-- 检查清单：✅利好 / ⚠️注意 / ❌风险
-- 风险提示 + 机会提示独立展示
-
-**AI Prompt 设计**：
-```python
-# 嵌入交易原则到 prompt
-TRADING_PRINCIPLES = """
-1. 板块轮动规律：资金从高位板块流向低位板块
-2. ETF配置原则：优先选择成交额>5亿、跟踪误差小的ETF
-3. 风险识别要点：连续大涨后警惕回调，政策利空需规避
-"""
-```
-
-### 8. 企业微信推送
-
-**模块**：`src/notify/wechat.py`
-
-**功能**：
-- 分析完成后自动推送到企业微信群
-- Markdown 格式，包含板块信号、风险/机会提示
-- 配置 `WECHAT_WEBHOOK_URL` 环境变量即可启用
-
-**消息格式**：
-```markdown
-## 🎯 市场观点标题
-
-摘要内容...
-
-### 板块信号
-> 🟢 **半导体** 🔥🔥🔥 利好
->    ✅ AI需求强劲 ✅ 业绩超预期
-
-### ⚠️ 风险提示
-> 风险1：...
-
-### 💡 机会提示
-> 机会1：...
-
----
-📊 基于 381 条新闻分析 | 01-31 00:41
-🔗 [查看详情](https://etf.aurora-bots.com/)
-```
-
-### 9. 板块7日趋势
-
-**功能**：展示板块近7天的方向变化，帮助识别趋势
-
-**数据流**：
-```
-每日归档 → load_history() → build_sector_trends() → 前端展示
-                         ↓
-              format_history_context() → AI分析上下文
-```
-
-**趋势箭头**：
-- ↑ 利好 / ↓ 利空 / → 中性或未提及
-- 示例：`↑↓↓↓↓↑↑` 表示近日转好
-
-**趋势描述**：
-- `N连利好/利空`：连续N天同方向
-- `近日转好/转弱`：最近3天方向变化
-- `整体偏好/偏弱`：统计多数方向
-- `震荡`：涨跌持平
-
-**历史上下文**：AI 分析时会参考近3日市场观点 + 近7日板块趋势
+- **FOTH Matrix**：新闻分析按 Facts/Opinions × History/Latest 四象限拆分，避免情绪污染事实判断。详见 `src/analyzers/realtime.py` 中的 `format_history_context()`
+- **数据源降级**：东方财富 → 新浪自动降级；R2 binding → HTTP 公开 URL 降级
+- **SSR + 异步水合**：首屏 SSR 渲染历史数据，JS 异步覆盖实时价格（/api/batch-sector-etfs）
+- **AI JSON 修复**：自动移除尾部逗号、替换中文引号，见 `src/analyzers/realtime.py`

@@ -43,10 +43,10 @@ export async function fetchFunds(codes: string[]): Promise<Record<string, EtfDat
 }
 
 // 批量获取 ETF K线数据（90天收盘价 + 5日/20日涨跌幅）
-export async function fetchKline(codes: string[]): Promise<Record<string, { change_5d: number; change_20d: number; kline: number[] }>> {
+export async function fetchKline(codes: string[]): Promise<Record<string, { name?: string; change_5d: number; change_20d: number; kline: number[] }>> {
   if (!codes.length) return {}
 
-  const results: Record<string, { change_5d: number; change_20d: number; kline: number[] }> = {}
+  const results: Record<string, { name?: string; change_5d: number; change_20d: number; kline: number[] }> = {}
 
   await Promise.all(codes.map(async (code) => {
     try {
@@ -59,7 +59,9 @@ export async function fetchKline(codes: string[]): Promise<Record<string, { chan
       const closes = klines.map((k: string) => parseFloat(k.split(',')[1]))
       if (closes.length) {
         const today = closes[closes.length - 1]
+        const name = data?.data?.name || undefined
         results[code] = {
+          name,
           change_5d: closes.length >= 6 ? +((today - closes[closes.length - 6]) / closes[closes.length - 6] * 100).toFixed(2) : 0,
           change_20d: closes.length >= 21 ? +((today - closes[closes.length - 21]) / closes[closes.length - 21] * 100).toFixed(2) : 0,
           kline: closes.slice(-90),

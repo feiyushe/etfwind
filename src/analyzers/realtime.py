@@ -59,7 +59,7 @@ ANALYSIS_PROMPT = """你是A股ETF投资分析师，专注板块轮动和ETF配�
   "sentiment": "偏乐观/偏悲观/分歧/平淡",
   "sectors": [
     {{
-      "name": "板块名（从可选板块选）",
+      "name": "板块名（必须从可选板块原样选取，禁止合并或自创名称）",
       "heat": 5,
       "direction": "利好/利空/中性",
       "confidence": 80,

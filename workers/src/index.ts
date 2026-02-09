@@ -201,11 +201,23 @@ app.get('/api/batch-sector-etfs', async (c) => {
   })
 })
 
-// API: ETF Master
+// API: ETF Master（返回完整数据含 sector_list/sectors/updated_at）
 app.get('/api/etf-master', async (c) => {
   return await withCache(c, c.req.url, 86400, async () => {
-    const etfMaster = await loadEtfMaster(c.env.R2)
-    return c.json(etfMaster)
+    let data: any
+    try {
+      const obj = await c.env.R2.get('etf_master.json')
+      if (obj) {
+        data = await obj.json()
+        return c.json(data)
+      }
+    } catch (e) {
+      console.error('R2 etf_master load failed:', e)
+    }
+    const resp = await fetch(`${R2_URL}/etf_master.json`)
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+    data = await resp.json()
+    return c.json(data)
   })
 })
 
@@ -304,6 +316,26 @@ app.get('/api/market-overview', async (c) => {
         momentum: momentum.map(m => ({ ...m, name: commodities[m.key]?.name }))
       }
     })
+  })
+})
+
+// API: 信号回测数据
+app.get('/api/review', async (c) => {
+  return await withCache(c, c.req.url, 1800, async () => {
+    let data: any
+    try {
+      const obj = await c.env.R2.get('review.json')
+      if (obj) {
+        data = await obj.json()
+        return c.json(data)
+      }
+    } catch (e) {
+      console.error('R2 review load failed:', e)
+    }
+    const resp = await fetch(`${R2_URL}/review.json`)
+    if (!resp.ok) return c.json({}, 404)
+    data = await resp.json()
+    return c.json(data)
   })
 })
 

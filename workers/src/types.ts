@@ -108,4 +108,5 @@ export const SECTOR_ALIAS: Record<string, string> = {
   '创新药': '医药',
   '贵金属': '黄金',
   '券商': '证券',
+  'AI/互联网': 'AI',
 }
