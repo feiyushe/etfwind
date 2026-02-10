@@ -2,12 +2,6 @@ name = "etf"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 
-routes = [
-  { pattern = "etf.aurora-bots.com", custom_domain = true },
-  { pattern = "www.aurora-bots.com", custom_domain = true },
-  { pattern = "aurora-bots.com", custom_domain = true }
-]
-
 [[r2_buckets]]
 binding = "R2"
 bucket_name = "invest-data"
