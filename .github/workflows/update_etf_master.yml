@@ -35,5 +35,5 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_ENDPOINT_URL: https://3cd484f565a03d34b3c765a2e17a8989.r2.cloudflarestorage.com
+          AWS_ENDPOINT_URL: https://dad6d4f6c0759b2d503d790685c9f3cb.r2.cloudflarestorage.com
         run: aws s3 cp config/etf_master.json s3://invest-data/etf_master.json
