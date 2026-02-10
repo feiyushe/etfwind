@@ -1,4 +1,7 @@
-"""Claude API client wrapper with retries and JSON helpers."""
+"""
+AI client wrapper compatible with OpenAI/DeepSeek API standards.
+Modified from original Claude client.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +10,7 @@ import json
 import random
 import re
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any
 
 import httpx
 from loguru import logger
@@ -18,13 +21,13 @@ from src.config import settings
 @dataclass
 class AIRequest:
     messages: list[dict[str, str]]
-    max_tokens: int = 1024
+    max_tokens: int = 2048  # DeepSeek 支持较长文本，稍微调大点
     timeout: float = 120
     model: str | None = None
 
 
 class AIClient:
-    """Lightweight Claude API client with retries."""
+    """Lightweight OpenAI-compatible (DeepSeek) API client with retries."""
 
     def __init__(self):
         self.base_url = settings.claude_base_url.rstrip("/")
@@ -32,41 +35,55 @@ class AIClient:
         self.model = settings.claude_model
 
     async def send(self, req: AIRequest) -> str:
+        # 1. 构造 OpenAI 格式的 payload
         payload = {
             "model": req.model or self.model,
             "max_tokens": req.max_tokens,
             "messages": req.messages,
+            "temperature": 0.7,
+            "stream": False
         }
 
         backoffs = [1, 2, 4]
         last_err: Exception | None = None
 
+        # 2. 构造 OpenAI 格式的 Endpoint
+        url = f"{self.base_url}/chat/completions"
+        if "/v1" not in self.base_url and "/chat/completions" not in self.base_url:
+             url = f"{self.base_url}/chat/completions"
+
         for attempt, backoff in enumerate(backoffs, start=1):
             try:
                 async with httpx.AsyncClient(timeout=req.timeout) as client:
                     resp = await client.post(
-                        f"{self.base_url}/v1/messages",
+                        url,
                         headers={
                             "Content-Type": "application/json",
-                            "x-api-key": self.api_key,
-                            "anthropic-version": "2023-06-01",
+                            "Authorization": f"Bearer {self.api_key}",
                         },
                         json=payload,
                     )
                     resp.raise_for_status()
                     data = resp.json()
-                    return data["content"][0]["text"].strip()
+                    
+                    return data["choices"][0]["message"]["content"].strip()
+                    
             except Exception as e:
                 last_err = e
+                if "Insufficient Balance" in str(e):
+                    break
+                    
                 if attempt < len(backoffs):
                     sleep_for = backoff + random.uniform(0, 0.3)
-                    logger.warning(f"Claude API error (attempt {attempt}): {e}. retrying...")
+                    logger.warning(f"AI API error (attempt {attempt}): {e}. retrying...")
                     await asyncio.sleep(sleep_for)
                 else:
                     break
 
-        raise last_err or RuntimeError("Claude API error")
+        raise last_err or RuntimeError("AI API error")
 
+
+# --- 下面的 JSON 辅助函数保持原样即可 ---
 
 def _extract_json_block(text: str) -> str:
     if "```json" in text:
@@ -93,7 +110,6 @@ def parse_json_with_repair(text: str, *, fix_newlines: bool = False) -> dict[str
             return json.loads(repaired)
         except json.JSONDecodeError as e2:
             logger.warning(f"JSON 修复失败，尝试二次修复: {e2}")
-            # Trim to outermost JSON object and normalize whitespace
             start = repaired.find("{")
             end = repaired.rfind("}")
             if start != -1 and end != -1 and end > start:
