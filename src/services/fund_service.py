@@ -668,7 +668,8 @@ class FundService:
     async def _get_kline_dates_from_sina(self, client, code: str) -> list[tuple[str, float]]:
         """从新浪获取带日期的K线数据"""
         try:
-            prefix = "sh" if code.startswith("5") else "sz"
+            # 5开头=上海ETF, 0开头=上海指数(如000300), 其余=深圳
+            prefix = "sh" if code.startswith("5") or code.startswith("0") else "sz"
             sina_code = f"{prefix}{code}"
             resp = await client.get(
                 f"https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData",
@@ -746,7 +747,18 @@ class FundService:
                 return out
         except Exception as e:
             logger.warning(f"东方财富K线(含日期)失败 {secid}: {e}")
-            return []
+            # 回退到新浪 API
+            if not code:
+                code = secid.split(".")[1]
+            try:
+                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                    out = await self._get_kline_dates_from_sina(client, code)
+                    if out:
+                        self._kline_date_cache[secid] = (time.time(), out)
+                    return out
+            except Exception as e2:
+                logger.warning(f"新浪K线(含日期)也失败 {code}: {e2}")
+                return []
 
     async def batch_get_funds(self, codes: list[str]) -> dict[str, dict]:
         """批量获取基金信息（实时行情+多周期涨跌幅）"""
