@@ -16,6 +16,17 @@ class Settings(BaseSettings):
         default="claude-sonnet-4-6", alias="CLAUDE_MODEL"
     )
 
+    # AI Fallback 配置（当主 API 返回内容安全拒绝时自动降级）
+    ai_fallback_base_url: str = Field(
+        default="", alias="AI_FALLBACK_BASE_URL"
+    )
+    ai_fallback_api_key: str = Field(
+        default="", alias="AI_FALLBACK_API_KEY"
+    )
+    ai_fallback_model: str = Field(
+        default="claude-sonnet-4-6", alias="AI_FALLBACK_MODEL"
+    )
+
     # 企业微信推送配置
     wechat_webhook_url: str = Field(
         default="", alias="WECHAT_WEBHOOK_URL"

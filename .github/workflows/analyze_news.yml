@@ -43,6 +43,9 @@ jobs:
           CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
           CLAUDE_BASE_URL: ${{ secrets.CLAUDE_BASE_URL }}
           CLAUDE_MODEL: ${{ secrets.CLAUDE_MODEL }}
+          AI_FALLBACK_BASE_URL: ${{ secrets.AI_FALLBACK_BASE_URL }}
+          AI_FALLBACK_API_KEY: ${{ secrets.AI_FALLBACK_API_KEY }}
+          AI_FALLBACK_MODEL: ${{ secrets.AI_FALLBACK_MODEL }}
         run: python -m src.analyze_news
 
       - name: Upload to R2

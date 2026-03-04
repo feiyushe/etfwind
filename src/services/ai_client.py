@@ -32,8 +32,31 @@ class AIClient:
         self.model = settings.claude_model
 
     async def send(self, req: AIRequest) -> str:
+        result = await self._call_api(
+            self.base_url, self.api_key, req.model or self.model, req,
+        )
+        if result is not None:
+            return result
+
+        # 主 API 内容安全拒绝，尝试 fallback
+        fb_url = settings.ai_fallback_base_url
+        fb_key = settings.ai_fallback_api_key
+        if fb_url and fb_key:
+            logger.info(f"降级到 fallback API...")
+            result = await self._call_api(
+                fb_url.rstrip("/"), fb_key, settings.ai_fallback_model, req,
+            )
+            if result is not None:
+                return result
+
+        raise RuntimeError("AI API error: all endpoints failed")
+
+    async def _call_api(
+        self, base_url: str, api_key: str, model: str, req: AIRequest,
+    ) -> str | None:
+        """调用 API，返回文本或 None（内容安全拒绝时）。其他错误正常重试。"""
         payload = {
-            "model": req.model or self.model,
+            "model": model,
             "max_tokens": req.max_tokens,
             "messages": req.messages,
         }
@@ -45,25 +68,26 @@ class AIClient:
             try:
                 async with httpx.AsyncClient(timeout=req.timeout) as client:
                     resp = await client.post(
-                        f"{self.base_url}/v1/messages",
+                        f"{base_url}/v1/messages",
                         headers={
                             "Content-Type": "application/json",
-                            "x-api-key": self.api_key,
+                            "x-api-key": api_key,
                             "anthropic-version": "2023-06-01",
                         },
                         json=payload,
                     )
                     if not resp.is_success:
                         logger.error(f"API error {resp.status_code}: {resp.text[:500]}")
+                        # 内容安全拒绝（Kimi "high risk"），不重试直接返回 None 触发降级
+                        if resp.status_code == 400 and "high risk" in resp.text:
+                            logger.warning("内容安全策略拒绝，跳过重试")
+                            return None
                     resp.raise_for_status()
                     data = resp.json()
                     content = data.get("content") or []
                     if not content:
                         raise ValueError(f"Unexpected API response: {data}")
 
-                    # MiniMax returns [{type: "thinking", ...}, {type: "text", text: "..."}]
-                    # Anthropic returns [{type: "text", text: "..."}]
-                    # Find the item with type === "text"
                     text_item = None
                     for item in content:
                         if item.get("type") == "text" and item.get("text"):
@@ -71,7 +95,6 @@ class AIClient:
                             break
 
                     if not text_item:
-                        # Fallback: try content[0].text for standard Anthropic format
                         text_item = content[0]
 
                     if not text_item.get("text"):
@@ -82,12 +105,12 @@ class AIClient:
                 last_err = e
                 if attempt < len(backoffs):
                     sleep_for = backoff + random.uniform(0, 0.3)
-                    logger.warning(f"Claude API error (attempt {attempt}): {e}. retrying...")
+                    logger.warning(f"API error (attempt {attempt}): {e}. retrying...")
                     await asyncio.sleep(sleep_for)
                 else:
                     break
 
-        raise last_err or RuntimeError("Claude API error")
+        raise last_err or RuntimeError("API error")
 
 
 def _extract_json_block(text: str) -> str:
