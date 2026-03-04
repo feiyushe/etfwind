@@ -110,9 +110,16 @@ async def analyze(items: list[NewsItem], sector_list: list[str] = None, history_
         sector_list: 可选板块列表（从 etf_master.json 读取）
         history_context: 历史分析上下文（用于趋势对比）
     """
+    # 过滤可能触发 AI 内容安全策略的新闻标题（政治人物全名等）
+    # 这些新闻对投资分析无实质影响，过滤后不影响分析质量
+    _FILTER_KEYWORDS = ["习近平", "总书记"]
+    filtered = [item for item in items if not any(k in item.title for k in _FILTER_KEYWORDS)]
+    if len(filtered) < len(items):
+        logger.info(f"过滤 {len(items) - len(filtered)} 条非投资相关新闻")
+
     news_list = "\n".join([
         f"{i+1}. [{item.source}] {item.title}"
-        for i, item in enumerate(items)
+        for i, item in enumerate(filtered)
     ])
 
     # 默认板块列表（与 etf_master.json 同步，含常用别名）
@@ -127,7 +134,7 @@ async def analyze(items: list[NewsItem], sector_list: list[str] = None, history_
 
     sector_str = "/".join(sector_list)
     prompt = ANALYSIS_PROMPT.format(
-        count=len(items),
+        count=len(filtered),
         news_list=news_list,
         history_context=history_context,
         sector_list=sector_str
