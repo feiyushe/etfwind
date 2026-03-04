@@ -112,7 +112,10 @@ async def analyze(items: list[NewsItem], sector_list: list[str] = None, history_
     """
     # 过滤可能触发 AI 内容安全策略的新闻标题（政治人物全名等）
     # 这些新闻对投资分析无实质影响，过滤后不影响分析质量
-    _FILTER_KEYWORDS = ["习近平", "总书记"]
+    _FILTER_KEYWORDS = [
+        "习近平", "总书记", "李强", "赵乐际", "王沪宁", "蔡奇", "丁薛祥", "李希",
+        "国家主席", "国务院总理", "政协主席",
+    ]
     filtered = [item for item in items if not any(k in item.title for k in _FILTER_KEYWORDS)]
     if len(filtered) < len(items):
         logger.info(f"过滤 {len(items) - len(filtered)} 条非投资相关新闻")
